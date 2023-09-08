@@ -56,6 +56,16 @@ if (normal[2] >0):
   normal = -1 * normal
 print(normal)
 
+print("\n\nnew way")
+A = points
+B = np.ones((A.shape[0], 1), dtype=float)
+normal = np.linalg.inv(A.T @ A) @ A.T @ B
+normal = normal / np.linalg.norm(normal)
+if (normal[2] >0):
+  normal = -1 * normal
+print(normal)
+print("\n\n\n")
+
 
 pose = np.array(
   [

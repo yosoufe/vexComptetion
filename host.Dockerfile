@@ -12,7 +12,7 @@ RUN apt install -y libgl1-mesa-glx ffmpeg libsm6 libxext6 mesa-utils
 RUN git clone https://github.com/timrobot/Cortano.git
 RUN cd Cortano \
   && python -m pip install . \
-  && python -m pip install open3d cupoch
+  && python -m pip install open3d cupoch pyapriltags
 
 # Download model
 RUN wget --show-progress\

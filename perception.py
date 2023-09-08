@@ -65,3 +65,16 @@ class Perception:
         Z.reshape((-1, 1))
     ), axis=-1)
     return XYZ
+
+if __name__ == "__main__":
+  from cortano import RemoteInterface
+  robot = RemoteInterface("192.168.68.68")
+  perc = Perception()
+
+  while True:
+    robot.update()
+    color, depth, sensors = robot.read()
+    # color, depth = robot.read()
+
+    ball_poses = perc.detect_balls(color, depth)
+    print(ball_poses)

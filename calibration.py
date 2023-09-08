@@ -54,7 +54,7 @@ class CalibrationInterface(RemoteInterface):
     self.pose = np.identity(4, dtype=float)
     self.perc = perception.Perception()
   
-  def update(self):
+  def run(self):
     super().update()
     color, depth, _ = self.read()
     balls = self.perc.detect_balls(color, depth)
@@ -141,7 +141,7 @@ class Application:
 
   def run(self):
     while True:
-      self.calib.update()
+      self.calib.run()
 
 if __name__ == "__main__":
   app = Application()
