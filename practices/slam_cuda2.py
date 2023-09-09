@@ -15,7 +15,7 @@ cy = 190.89762878418
 prev_frame = None
 
 if __name__ == "__main__":
-    robot = RemoteInterface("192.168.68.68")
+    robot = RemoteInterface(Config.ip)
 
     camera_intrinsics = cph.camera.PinholeCameraIntrinsic(640,360,fx,fy,cx,cy)
     kop = cph.kinfu.KinfuOption()

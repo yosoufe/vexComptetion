@@ -19,7 +19,7 @@ cy = 190.89762878418
 prev_rgbd_image = None
 
 if __name__ == "__main__":
-    robot = RemoteInterface("192.168.68.68")
+    robot = RemoteInterface(Config.ip)
     # robot = RemoteInterface("192.168.55.1")
 
     camera_intrinsics = cph.camera.PinholeCameraIntrinsic(640,360,fx,fy,cx,cy)

@@ -22,7 +22,7 @@ total_trans = np.zeros_like(total_transform[:3, 3])
 pinhole_camera_intrinsic = o3d.camera.PinholeCameraIntrinsic(640,360,fx,fy,cx,cy)
 
 if __name__ == "__main__":
-    robot = RemoteInterface("192.168.68.68")
+    robot = RemoteInterface(Config.ip)
 
     while True:
         robot.update()

@@ -1,3 +1,6 @@
+192.168.50.206
+ip at home "192.168.68.68"
+
 # Clipboard
 
 ```bash
@@ -15,6 +18,7 @@ docker build -f host.Dockerfile -t vexcompetition .
 xhost + \
 && docker run \
   --name vexcompetiton \
+  --runtime nvidia \
   --rm -it \
   -v `realpath ..`:`realpath ..` \
   --network host \
@@ -62,6 +66,10 @@ sudo nmtui
 
 
 # April Tags
+
+https://github.com/AprilRobotics/apriltag#coordinate-system
+
+The coordinate system has the origin at the camera center. The z-axis points from the camera center out the camera lens. The x-axis is to the right in the image taken by the camera, and y is down. The tag's coordinate frame is centered at the center of the tag, with x-axis to the right, y-axis down, and z-axis into the tag.
 
 ## Images:
 Tag Family: tag16h5
@@ -115,3 +123,12 @@ robot to camera transformation:
  [-0.41772631 -0.0435315  -0.89973047  0.08688687]
  [ 0.90725477  0.03379077 -0.43575871  0.39080503]
  [ 0.          0.          0.          1.        ]]
+
+
+array([[ 0.0695368 ,  0.99752359,  0.01055085],
+       [-0.46330579,  0.02292656,  0.88590187],
+       [ 0.88346612, -0.06649105,  0.46375269]])
+array([[107.75917427],
+       [101.96002389],
+       [450.90017004]])
+

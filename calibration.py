@@ -137,7 +137,7 @@ class CalibrationInterface(RemoteInterface):
 
 class Application:
   def __init__(self):
-    self.calib = CalibrationInterface("192.168.68.68")
+    self.calib = CalibrationInterface(Config.ip)
 
   def run(self):
     while True:

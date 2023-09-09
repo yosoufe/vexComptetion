@@ -55,8 +55,9 @@ class ManualControl:
     self.actuation.apply()
 
 if __name__ == "__main__":
+  from config import Config
   from cortano import RemoteInterface
-  robot = RemoteInterface("192.168.68.68")
+  robot = RemoteInterface(Config.ip)
   manualControl = ManualControl(robot)
   while True:
     robot.update()

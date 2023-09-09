@@ -48,7 +48,7 @@ criteria_list = [
 method = o3d.t.pipelines.odometry.Method.Hybrid
 
 if __name__ == "__main__":
-    robot = RemoteInterface("192.168.68.68")
+    robot = RemoteInterface(Config.ip)
 
     while True:
         robot.update()

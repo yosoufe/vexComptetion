@@ -14,6 +14,8 @@ class Perception:
 
   def detect_balls(self, color, depth, show_mask = True):
     input_tensor = self.preprocess(Image.fromarray(color))
+    # print(input_tensor)
+    input_tensor = input_tensor * 0.9
     input_batch = input_tensor.unsqueeze(0).to('cuda')
     with torch.no_grad():
       output = self.model(input_batch)[0]
@@ -24,10 +26,11 @@ class Perception:
     object_index = 37
     indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > 0.25)
     masks  = output["masks"][indeces_found]
+    # print(output["labels"], masks)
     single_mask = np.zeros((360, 640), dtype=np.uint8)
     for idx in range(len(masks)):
       reshaped_mask = masks[idx].reshape((360, 640))
-      indecies = reshaped_mask>0.25
+      indecies = reshaped_mask>0.15
       single_mask[indecies] = 255
 
       ball_depth = depth * (reshaped_mask > 0)
@@ -68,7 +71,7 @@ class Perception:
 
 if __name__ == "__main__":
   from cortano import RemoteInterface
-  robot = RemoteInterface("192.168.68.68")
+  robot = RemoteInterface(Config.ip)
   perc = Perception()
 
   while True:

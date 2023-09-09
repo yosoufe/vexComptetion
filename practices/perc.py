@@ -32,7 +32,7 @@ def get_XYZ(depth_image):
     return XYZ
 
 if __name__ == "__main__":
-    robot = RemoteInterface("192.168.68.68")
+    robot = RemoteInterface(Config.ip)
     # cam = camera.RealsenseCamera() # because this is a locally run camera, but you don't need
 
     # object detection model

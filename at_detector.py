@@ -22,20 +22,23 @@ class ATDetector:
     for tag in tags:
       if tag.decision_margin < 50:
         continue 
-      print(tag.tag_id)
-      print(tag.pose_R)
-      print(tag.pose_t)
-      print(tag)
+      print(repr(tag.tag_id))
+      print(repr(tag.pose_R))
+      print(repr(tag.pose_t))
+      print(repr(tag))
     
-    print("------------")
+    # print("------------")
 
 if __name__ == "__main__":
   from cortano import RemoteInterface
-  robot = RemoteInterface("192.168.68.68")
+  from actuation import ManualControl
+  robot = RemoteInterface(Config.ip)
   at_detector = ATDetector()
+  manualControl = ManualControl(robot)
 
   while True:
     robot.update()
+    manualControl.run()
     color, _, _ = robot.read()
     # color, depth = robot.read()
 

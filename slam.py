@@ -65,7 +65,7 @@ if __name__ == "__main__":
   sensorReader = SensorReader()
   start_subscribers()
 
-  robot = RemoteInterface("192.168.68.68")
+  robot = RemoteInterface(Config.ip)
   while True:
     robot.update()
     sensorReader.update(robot)

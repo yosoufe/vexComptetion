@@ -15,7 +15,7 @@ cx = 315.441986083984
 cy = 190.89762878418
 
 def producer(queue, isRunning):
-    robot = RemoteInterface("192.168.68.68")
+    robot = RemoteInterface(Config.ip)
 
     while isRunning:
         robot.update()

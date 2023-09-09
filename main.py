@@ -3,6 +3,7 @@ from pid import PID
 from actuation import Actuation, ManualControl
 from perception import Perception
 import numpy as np
+from config import Config
 
 # cameraToRobotT = np.array(
 #   [[0.04892364, -0.41772631, 0.90725477, -0.32358759],
@@ -23,11 +24,11 @@ cameraToRobotT = np.array(
 class TennisBallGraber:
   def __init__(self):
     self.perception = Perception()
-    self.robot = RemoteInterface("192.168.68.68")
-    self.actuation = Actuation(self.robot)
-    # self.manualControl = ManualControl(self.robot) # for debugging and testing
+    self.robot = RemoteInterface(Config.ip)
+    # self.actuation = Actuation(self.robot)
+    self.manualControl = ManualControl(self.robot) # for debugging and testing
     self.forwardPID = PID(kp=50, ki=3, kd=1)
-    self.ccwSpinPID = PID(kp=10, ki=0, kd=0)
+    self.ccwSpinPID = PID(kp=40, ki=0, kd=0)
 
   def loop(self):
     while True:
@@ -36,7 +37,7 @@ class TennisBallGraber:
   
 
   def run(self):
-    # self.manualControl.run()
+    self.manualControl.run()
     color, depth, _ = self.robot.read()
     # detect tennis ball
     tennisBalls = self.perception.detect_balls(color, depth)
@@ -46,15 +47,18 @@ class TennisBallGraber:
       tennisBalls = np.vstack(tennisBalls).T/1000.0 # 3 x n_balls
       positions = np.ones((4,n_balls), float)
       positions[:3, :] = tennisBalls
-      positionInRobotFrame = np.sort(cameraToRobotT @ positions, axis = 1)
-      # print(positionInRobotFrame[:3, :])
+      print(Config.cam2RobotT())
+      positionInRobotFrame = np.sort(Config.cam2RobotT() @ positions, axis = 1)
+      
+      print(positionInRobotFrame[:3, :])
 
       # navigate the robot to that position
       target = positionInRobotFrame[:2, 0]
-      self.runControl(target)
+      # self.runControl(target)
     else:
-      self.actuation.reset()
-      self.actuation.apply()
+      pass
+      # self.actuation.reset()
+      # self.actuation.apply()
 
     
   def runControl(self, target):

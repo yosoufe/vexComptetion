@@ -2,7 +2,7 @@ from cortano import RemoteInterface
 import time
 
 if __name__ == "__main__":
-    robot = RemoteInterface("192.168.68.68")
+    robot = RemoteInterface(Config.ip)
 
     while True:
         robot.update()
