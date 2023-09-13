@@ -1,3 +1,6 @@
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from constants import Config, Topics
 from cortano import RemoteInterface
 
 MOTOR_RIGHT = 0
@@ -7,7 +10,7 @@ MOTOR_ARM = 8
 
 
 if __name__ == "__main__":
-  robot = RemoteInterface(Config.ip)
+  robot = Config.getRobot()
   while True:
     robot.update() # must never be forgotten
     color, depth, sensors = robot.read()

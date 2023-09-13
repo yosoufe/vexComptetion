@@ -132,3 +132,10 @@ array([[107.75917427],
        [101.96002389],
        [450.90017004]])
 
+
+
+## Jupyter notebook
+
+```bash
+jupyter notebook --allow-root --no-browser
+```

@@ -4,6 +4,7 @@ from torchvision import transforms
 from PIL import Image
 import torch
 import cv2
+from constants import Config, Topics
 
 class Perception:
   def __init__(self):
@@ -12,7 +13,10 @@ class Perception:
     self.model.to('cuda')
     self.preprocess = transforms.Compose([ transforms.ToTensor(), ])
 
+  
   def detect_balls(self, color, depth, show_mask = True):
+    """ positions in camera frame in meters
+    """
     input_tensor = self.preprocess(Image.fromarray(color))
     # print(input_tensor)
     input_tensor = input_tensor * 0.9
@@ -38,7 +42,7 @@ class Perception:
       num_pixels = np.sum(ball_depth > 0)
 
       if num_pixels > 0:
-        average_xyz = np.sum(xyz, axis=0) / num_pixels
+        average_xyz = np.sum(xyz, axis=0) / num_pixels / 1000.0
         ball_poses.append(average_xyz)
     
     if show_mask:
@@ -70,8 +74,7 @@ class Perception:
     return XYZ
 
 if __name__ == "__main__":
-  from cortano import RemoteInterface
-  robot = RemoteInterface(Config.ip)
+  robot = Config.getRobot()
   perc = Perception()
 
   while True:
