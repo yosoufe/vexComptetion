@@ -52,15 +52,11 @@ class Perception:
     return ball_poses
 
   def get_XYZ(self, depth_image):
-    fx = 460.92495728
-    fy = 460.85058594
-    cx = 315.10949707
-    cy = 176.72598267
-    h, w = (360, 640)
+    h, w = (Config.height, Config.width)
     U = np.tile(np.arange(w).reshape((1, w)), (h, 1))
     V = np.tile(np.arange(h).reshape((h, 1)), (1, w))
-    U = (U - cx) / fx
-    V = (V - cy) / fy
+    U = (U - Config.cx) / Config.fx
+    V = (V - Config.cy) / Config.fy
 
     Z = depth_image
     X = U * Z

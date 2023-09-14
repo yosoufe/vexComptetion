@@ -87,7 +87,8 @@ class RgbdOdometryNode(Node):
     )
 
     camera_intrinsics = cph.camera.PinholeCameraIntrinsic(
-      Config.height,Config.width,Config.fx,Config.fy,Config.cx,Config.cy)
+      Config.width, Config.height,
+      Config.fx, Config.fy, Config.cx, Config.cy)
     option = cph.odometry.OdometryOption()
     option.min_depth = 0.30
     option.max_depth = 4
