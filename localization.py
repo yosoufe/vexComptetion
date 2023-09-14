@@ -26,11 +26,11 @@ class ATLocalizerNode(Node):
       img = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY),
       estimate_tag_pose = True,
       camera_params = Config.camera_params,
-      tag_size = Config.tag_size)
+      tag_size = Map.tag_size)
     
-    tags = [tag for tag in tags if tag.decision_margin > 50]
+    tags = [tag for tag in tags if tag.decision_margin > 50 and tag.tag_id in Map.tag_ids]
 
-    if debug:
+    if debug: # or True:
       for tag in tags:
         print(repr(tag.tag_id))
         print(repr(tag.pose_R))
@@ -113,6 +113,7 @@ class RgbdOdometryNode(Node):
         # print(self.cur_trans[:3,3])
         # odomInCamFrame is T from current cam 2 prev cam
         odomInRobotFrame = Config.cam2RobotT() @ odomInCamFrame @ Config.robot2CamT()
+        print(odomInRobotFrame[:3, 3])
         self.odom_publisher.publish(timestamp, odomInRobotFrame)
 
     self.prev_cph_rgbd = cph_rgbd
@@ -142,7 +143,7 @@ class LocalizationNode(Node):
     self.publishCurrentPose(timestamp)
   
   def publishCurrentPose(self, timestamp):
-    print(self.currentPose[:3, 3])
+    # print(self.currentPose[:3, 3])
     self.fusePosePublisher.publish(timestamp, self.currentPose)
 
 class PosePlotterNode(Node):

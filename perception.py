@@ -28,7 +28,7 @@ class Perception:
     ball_poses = []
 
     object_index = 37
-    indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > 0.25)
+    indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > 0.2)
     masks  = output["masks"][indeces_found]
     # print(output["labels"], masks)
     single_mask = np.zeros((360, 640), dtype=np.uint8)
