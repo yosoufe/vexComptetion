@@ -30,7 +30,7 @@ class ATLocalizerNode(Node):
     
     tags = [tag for tag in tags if tag.decision_margin > 50 and tag.tag_id in Map.tag_ids]
 
-    if debug: # or True:
+    if debug or True:
       for tag in tags:
         print(repr(tag.tag_id))
         print(repr(tag.pose_R))
