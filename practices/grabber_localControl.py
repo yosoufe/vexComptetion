@@ -5,7 +5,7 @@ from perception import Perception
 import numpy as np
 from constants import Config, Topics
 
-class TennisBallGraber:
+class TennisBallGrabber:
   def __init__(self, robot, manual_control = False):
     self.isManualControl = manual_control
     self.perception = Perception()
@@ -56,7 +56,7 @@ class TennisBallGraber:
 
 if __name__ == "__main__":
   robot = RemoteInterface(Config.ip)
-  app = TennisBallGraber(robot, manual_control= False)
+  app = TennisBallGrabber(robot, manual_control= False)
   while True:
     robot.update()
     color, depth , _ = robot.read()

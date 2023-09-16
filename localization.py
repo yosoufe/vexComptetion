@@ -30,7 +30,7 @@ class ATLocalizerNode(Node):
     
     tags = [tag for tag in tags if tag.decision_margin > 50 and tag.tag_id in Map.tag_ids]
 
-    if debug or True:
+    if debug:
       for tag in tags:
         print(repr(tag.tag_id))
         print(repr(tag.pose_R))
@@ -42,7 +42,7 @@ class ATLocalizerNode(Node):
   def localize(self, timestamp, rgbd):
     # just use the first tag in the list
     color, _ = rgbd
-    tags = self.detect(color)
+    tags = self.detect(color, debug= False)
     if len(tags) == 0:
       return
     tag = tags[0]
@@ -114,7 +114,7 @@ class RgbdOdometryNode(Node):
         # print(self.cur_trans[:3,3])
         # odomInCamFrame is T from current cam 2 prev cam
         odomInRobotFrame = Config.cam2RobotT() @ odomInCamFrame @ Config.robot2CamT()
-        print(odomInRobotFrame[:3, 3])
+        # print(odomInRobotFrame[:3, 3])
         self.odom_publisher.publish(timestamp, odomInRobotFrame)
 
     self.prev_cph_rgbd = cph_rgbd

@@ -22,13 +22,12 @@ class Config:
   #                              [0.47853268686]])
 
   # Robot frame in camera frame
-  at_zero_rot = np.array([[0.05637445, -0.06686064, -0.99616845],
-                          [0.94133236, 0.33608038, 0.03071423],
-                          [0.3327391, -0.93945709, 0.08188443]])
-
-  at_zero_position = np.array([[-0.09934562],
-                               [0.03577288],
-                               [0.28689335]])
+  at_zero_rot = np.array([[0.10036645, -0.11373534, -0.98842847],
+                          [0.9810449,  0.17682528,  0.07926998],
+                          [0.16576335, -0.97764876,  0.1293268]])
+  at_zero_position = np.array([[-0.08517979],
+                               [0.07962572],
+                               [0.30808843]])
 
   _cam2RobotT = None
   _robot2CamT = None
@@ -37,6 +36,7 @@ class Config:
                        [0, 0, -1, 0],
                        [0, 0, 0, 1]], dtype=float)
 
+  @staticmethod
   def cam2RobotT():
     if Config._cam2RobotT is None:
       AT2Camera = np.eye(4, dtype=float)
@@ -46,6 +46,7 @@ class Config:
       Config._cam2RobotT = Config._AT2Robot @ np.linalg.inv(AT2Camera)
     return Config._cam2RobotT
 
+  @staticmethod
   def robot2CamT():
     if Config._robot2CamT is None:
       Config._robot2CamT = np.linalg.inv(Config.cam2RobotT())
@@ -54,11 +55,18 @@ class Config:
   zero_offset = np.array([-0.08315515, 0.04375288])
 
   _robot = None
+  _robotNode = None
 
-  def getRobot():
-    from cortano import RemoteInterface
+  @staticmethod
+  def getRobot(subscribeForMotorCommands = False):
+    # from interface import RemoteInterfaceNode
+    # from cortano import RemoteInterface
+    from remote_interface_node import RemoteInterfaceNodeMultiprocessorSafe, RemoteInterfaceNode
+    import multiprocessing as mp
     if Config._robot is None:
-      Config._robot = RemoteInterface(Config.ip)
+      queue = mp.Queue(maxsize=1)
+      Config._robot = RemoteInterfaceNodeMultiprocessorSafe(queue, Config.ip)
+      Config._robotNode = RemoteInterfaceNode(queue)
     return Config._robot
 
 
@@ -94,7 +102,7 @@ class OldConfigs:
 
 # MAP at Home
 
-class HomeMap:
+class _HomeMap:
   tag_size = 72 / 1000  # m
   tag_ids = set(list(range(1, 5)))
   _landmarks = {
@@ -123,21 +131,22 @@ class HomeMap:
   X_limits = [-1, 2]
   Y_limits = [-2, 0.2]
 
+  @staticmethod
   def getLandmark(id):
     if id == 1:
-      return HomeMap._landmarks[1]
-    return HomeMap._landmarks[1] @ HomeMap._landmarks[id]
+      return _HomeMap._landmarks[1]
+    return _HomeMap._landmarks[1] @ _HomeMap._landmarks[id]
 
 # Map at competition
 
 
-class CompetitionMap:
-  # here positions are in inches
+class _CompetitionMap:
+  tag_size = 3 * 0.0254  # m
+  # tag_size = 2.735 * 0.0254 # m
+  tag_ids = set(list(range(1, 9)))
+  # in _landmarks, positions are in inches
   # they are converted to meters
   # in the function below
-  # tag_size = 2.735 * 0.0254 # m
-  tag_size = 3 * 0.0254  # m
-  tag_ids = set(list(range(1, 9)))
   _landmarks = {
       1: np.array([[0, 0, -1, -72],
                    [1, 0, 0, 24],
@@ -176,10 +185,11 @@ class CompetitionMap:
   X_limits = [-72 * 0.0254, 72 * 0.0254]
   Y_limits = [-72 * 0.0254, 72 * 0.0254]
 
+  @staticmethod
   def getLandmark(id):
     """ Transformation from  april tag frame to map frame
     """
-    transform = CompetitionMap._landmarks[id].copy()
+    transform = _CompetitionMap._landmarks[id].copy()
     # convert to meters
     transform[:2, 3] = transform[:2, 3] * 0.0254
     # z component of the center
@@ -187,8 +197,8 @@ class CompetitionMap:
     return transform
 
 
-# Map = CompetitionMap
-Map = HomeMap
+# Map = _CompetitionMap
+Map = _HomeMap
 
 
 class Topics:
@@ -197,3 +207,5 @@ class Topics:
   atPose = "atPose"
   odom = "odom"
   fusedPose = "fusedPose"
+  ballPositions = "ballPositions" # relative to robot frame
+  motorCommands = "motorCommands"           # 

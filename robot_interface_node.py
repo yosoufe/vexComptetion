@@ -1,5 +1,7 @@
 from middleware import Node
 from constants import Topics
+import keyboard
+import numpy as np
 
 class Actuation:
   RIGHT_MOTOR_INDEX = 0
@@ -31,10 +33,15 @@ class Actuation:
     self.clawMotor = command
 
   def update(self, robot):
-    robot.motor[Actuation.RIGHT_MOTOR_INDEX] = self.rightMotor
-    robot.motor[Actuation.LEFT_MOTOR_INDEX] = self.leftMotor
-    robot.motor[Actuation.CLAW_MOTOR_INDEX] = self.clawMotor
-    robot.motor[Actuation.ARM_MOTOR_INDEX] = self.armMotor
+    robot.motor = self.generateMotorCmd()
+  
+  def generateMotorCmd(self):
+    cmd = np.zeros(shape=(10,), dtype=np.int32)
+    cmd[Actuation.RIGHT_MOTOR_INDEX] = self.rightMotor
+    cmd[Actuation.LEFT_MOTOR_INDEX] = self.leftMotor
+    cmd[Actuation.CLAW_MOTOR_INDEX] = self.clawMotor
+    cmd[Actuation.ARM_MOTOR_INDEX] = self.armMotor
+    return cmd
 
 class ManualControl:
   def __init__(self,):
@@ -54,6 +61,27 @@ class ManualControl:
 
     self.actuation.clawCommand((robot.keys["q"] - robot.keys["e"])*42)
     self.actuation.update(robot)
+    
+class ManualControlNode(Node):
+  def __init__(self):
+    super().__init__("ManualControlNode")
+    self.commandPublisher = self.create_publisher(Topics.motorCommands)
+    self.actuation = Actuation()
+  
+  def publishMotorCommands(self, timestamp):
+    self.actuation.reset()
+    self.actuation.goForward((keyboard.is_pressed("w") - keyboard.is_pressed("s"))* 30)
+    self.actuation.spinCounterClockWise((keyboard.is_pressed("a") - keyboard.is_pressed("d"))*25)
+    arm = keyboard.is_pressed("r") - keyboard.is_pressed("f")
+    if arm == 0:
+      self.actuation.armCommand(10)
+    elif arm == 1:
+      self.actuation.armCommand(42)
+    else:
+      self.actuation.armCommand(-1)
+
+    self.actuation.clawCommand((keyboard.is_pressed("q") - keyboard.is_pressed("e"))*42)
+    self.commandPublisher.publish(timestamp, self.actuation.generateMotorCmd())
 
 class SensorPublisherNode(Node):
   def __init__(self):
@@ -122,5 +150,27 @@ def test_robot_interface_nodes():
     manualControl.update(robot)
     SensorPublisherNode.publishSensorData(robot)
 
+def test_manual_control_node():
+  from constants import Config, Topics
+  from middleware import start_subscribers
+  import time
+  robot = Config.getRobot(subscribeForMotorCommands = True)
+  # create sensor reader node
+  sensorPublisherNode = SensorPublisherNode()
+
+  # create manual control
+  manualControlNode = ManualControlNode()
+
+  # SensorReaderLoggerNode
+  # sensorReaderLogger = SensorReaderLoggerNode()
+
+  # run the nodes
+  start_subscribers()
+  while True:
+    robot.update()
+    manualControlNode.publishMotorCommands(time.time())
+    sensorPublisherNode.publishSensorData(robot)
+
 if __name__ == "__main__":
-  test_robot_interface_nodes()
+  # test_robot_interface_nodes()
+  test_manual_control_node()

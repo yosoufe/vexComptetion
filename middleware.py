@@ -1,4 +1,3 @@
-
 import multiprocessing as mp
 import select
 
@@ -21,38 +20,53 @@ class _Broker:
       queue = mp.Queue(subscriber.buffer_size)
       subscriber.node._add_sub_queue(queue)
       self.publishers[subscriber.topic]._add_pub_queue(queue)
-      self.matches.append((subscriber.topic, self.publishers[subscriber.topic].node_name, subscriber.node._name))
+      self.matches.append((subscriber.topic, self.publishers[subscriber.topic]._node_name, subscriber.node._name))
       self.nodes_with_subscribers.append(subscriber.node)
   
   def request_publisher(self, publisher):
-    if publisher.topic in self.publishers:
+    if publisher._topic in self.publishers:
       raise Exception("Multiple nodes cannot publish on a same topic")
-    self.publishers[publisher.topic] = publisher
+    self.publishers[publisher._topic] = publisher
     self._match_publisher_to_subscribers(publisher)
   
   def _match_publisher_to_subscribers(self, publisher):
-    if publisher.topic in self.subscribers:
-      for subscriber in self.subscribers[publisher.topic]:
+    if publisher._topic in self.subscribers:
+      for subscriber in self.subscribers[publisher._topic]:
         queue = mp.Queue(subscriber.buffer_size)
         subscriber.node._add_sub_queue(queue)
         self.nodes_with_subscribers.append(subscriber.node)
         publisher._add_pub_queue(queue)
-        self.matches.append((subscriber.topic, publisher.node_name, subscriber.node._name))
+        self.matches.append((subscriber.topic, publisher._node_name, subscriber.node._name))
 
 
 class _GlobalObjs:
   _broker = _Broker()
+  _nodes = []
+  _prints = set()
 
 def start_subscribers():
   set_of_nodes_with_subscribers = set(_GlobalObjs._broker.nodes_with_subscribers)
   for node in set_of_nodes_with_subscribers:
+    print(f"Starting process of node {node._name}!!")
     node.start()
+    print(f"Process of node {node._name} started!!")
+
+
+def printOnce(msg):
+  if msg in _GlobalObjs._prints:
+    return
+  _GlobalObjs._prints.add(msg)
+  print(msg)
 
 class Node:
   def __init__(self, name):
     self._name = name
     self._sub_queues = []
     self._topic2Subscription = {}
+    
+    # just to keep the node alive without keeping
+    # the instance in some main function.
+    _GlobalObjs._nodes.append(self)
 
   def create_publisher(self, topic):
     pub = _Publisher(self._name, topic)
@@ -88,22 +102,22 @@ class Node:
 
 class _Publisher:
   def __init__(self, node_name, topic):
-    self.topic = topic
-    self.node_name = node_name
-    self.pub_queues = []
+    self._topic = topic
+    self._node_name = node_name
+    self._pub_queues = []
 
   def publish(self, timestamp, msg, block = False):
-    if len(self.pub_queues) == 0:
-      print("there is no subscriber for topic", self.topic)
+    if len(self._pub_queues) == 0:
+      printOnce(f"There is no subscriber for topic {self._topic}")
       return
-    for pub_queue in self.pub_queues:
+    for pub_queue in self._pub_queues:
       try:
-        pub_queue.put((self.topic, timestamp, msg), block = block)
+        pub_queue.put((self._topic, timestamp, msg), block = block)
       except Exception:
         pass
 
   def _add_pub_queue(self, queue):
-    self.pub_queues.append(queue)
+    self._pub_queues.append(queue)
 
 class _Subscriber:
   def __init__(self, node, topic, callback, buffer_size):
