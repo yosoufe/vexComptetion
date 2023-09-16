@@ -15,6 +15,10 @@ class RemoteInterfaceNodeMultiprocessorSafe(RemoteInterface):
       pass
     return self.motor_vals
 
+  @motor.setter
+  def motor(self, value):
+    self.motor_vals = value
+
 class RemoteInterfaceNode(Node):
   def __init__(self, queue):
     super().__init__("RemoteInterfaceNode")

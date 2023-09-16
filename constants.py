@@ -58,8 +58,7 @@ class Config:
   _robotNode = None
 
   @staticmethod
-  def getRobot(subscribeForMotorCommands = False):
-    # from interface import RemoteInterfaceNode
+  def getRobot():
     # from cortano import RemoteInterface
     from remote_interface_node import RemoteInterfaceNodeMultiprocessorSafe, RemoteInterfaceNode
     import multiprocessing as mp

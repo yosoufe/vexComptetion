@@ -41,7 +41,7 @@ def test_planning_and_control_node():
   from robot_interface_node import SensorPublisherNode
   from middleware import start_subscribers
 
-  robot = Config.getRobot(subscribeForMotorCommands=True)
+  robot = Config.getRobot()
   sensorPublisherNode = SensorPublisherNode()
   planningAndControlNode = PlanningAndControlNode()
   localizationNode = LocalizationNode()

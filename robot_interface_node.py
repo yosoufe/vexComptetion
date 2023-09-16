@@ -154,7 +154,7 @@ def test_manual_control_node():
   from constants import Config, Topics
   from middleware import start_subscribers
   import time
-  robot = Config.getRobot(subscribeForMotorCommands = True)
+  robot = Config.getRobot()
   # create sensor reader node
   sensorPublisherNode = SensorPublisherNode()
 

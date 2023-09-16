@@ -25,5 +25,4 @@ RUN wget --show-progress\
     https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth
 
 
-# /opt/conda/lib/python3.10/site-packages/cortano/__init__.py
-RUN sed -i "s/lan.write(self.motor_vals)/lan.write(self.motor)/g" interface.py 
+RUN sed -i "s/lan.write(self.motor_vals)/lan.write(self.motor)/g" /opt/conda/lib/python3.10/site-packages/cortano/interface.py 
