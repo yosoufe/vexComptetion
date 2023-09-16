@@ -2,7 +2,7 @@ from cortano import RemoteInterface
 from constants import Topics
 from middleware import Node
 
-class RemoteInterfaceNodeMultiprocessorSafe(RemoteInterface):
+class RemoteInterfaceNodeMultiProcessSafe(RemoteInterface):
   def __init__(self, motorCmdQueue, host="0.0.0.0", port=9999):
     super().__init__(host, port)
     self.motorCmdQueue = motorCmdQueue

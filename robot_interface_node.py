@@ -162,7 +162,7 @@ def test_manual_control_node():
   manualControlNode = ManualControlNode()
 
   # SensorReaderLoggerNode
-  # sensorReaderLogger = SensorReaderLoggerNode()
+  sensorReaderLogger = SensorReaderLoggerNode()
 
   # run the nodes
   start_subscribers()

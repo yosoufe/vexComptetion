@@ -60,11 +60,11 @@ class Config:
   @staticmethod
   def getRobot():
     # from cortano import RemoteInterface
-    from remote_interface_node import RemoteInterfaceNodeMultiprocessorSafe, RemoteInterfaceNode
+    from remote_interface_node import RemoteInterfaceNodeMultiProcessSafe, RemoteInterfaceNode
     import multiprocessing as mp
     if Config._robot is None:
       queue = mp.Queue(maxsize=1)
-      Config._robot = RemoteInterfaceNodeMultiprocessorSafe(queue, Config.ip)
+      Config._robot = RemoteInterfaceNodeMultiProcessSafe(queue, Config.ip)
       Config._robotNode = RemoteInterfaceNode(queue)
     return Config._robot
 
@@ -207,4 +207,4 @@ class Topics:
   odom = "odom"
   fusedPose = "fusedPose"
   ballPositions = "ballPositions" # relative to robot frame
-  motorCommands = "motorCommands"           # 
+  motorCommands = "motorCommands" # 
