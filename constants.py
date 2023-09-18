@@ -127,14 +127,17 @@ class _HomeMap:
                    [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
   }
 
-  X_limits = [-1, 2]
-  Y_limits = [-2, 0.2]
+  X_limits = np.array([-1, 2],dtype= float)
+  Y_limits = np.array([-2, 0.2],dtype= float)
+  GRID_MAP = None
+  GRID_SIZE_METERS = 0.025
 
   @staticmethod
   def getLandmark(id):
     if id == 1:
       return _HomeMap._landmarks[1]
     return _HomeMap._landmarks[1] @ _HomeMap._landmarks[id]
+
 
 # Map at competition
 
@@ -181,8 +184,10 @@ class _CompetitionMap:
                    [0, 0, 0, 1]], dtype=float)
   }
 
-  X_limits = [-72 * 0.0254, 72 * 0.0254]
-  Y_limits = [-72 * 0.0254, 72 * 0.0254]
+  X_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
+  Y_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
+  GRID_MAP = None
+  GRID_SIZE_METERS = 0.025
 
   @staticmethod
   def getLandmark(id):
@@ -199,12 +204,28 @@ class _CompetitionMap:
 # Map = _CompetitionMap
 Map = _HomeMap
 
+def getGridMap():
+  if Map.GRID_MAP is None:
+    dx = Map.X_limits[1] - Map.X_limits[0]
+    dy = Map.Y_limits[1] - Map.Y_limits[0]
+    resolution = 0.025 # meters, close to 1 inch
+    Map.GRID_MAP = np.zeros(shape=(np.ceil(dx/resolution), np.ceil(dy/resolution+1)), dtype=int)
+  return Map.GRID_MAP
+
+def getGridIdxForXY(positions):
+  idx = np.round((positions - np.array([Map.X_limits[0], Map.Y_limits[0]]))/Map.GRID_SIZE_METERS)
+  return idx.astype(int)
 
 class Topics:
   isMoving = "isMoving"
   rgbd = "rgbd"
   atPose = "atPose"
-  odom = "odom"
-  fusedPose = "fusedPose"
+  odom = "odom"                   # robot frame relative to previous robot frame
+  fusedPose = "fusedPose"         # robot frame relative to map frame
   ballPositions = "ballPositions" # relative to robot frame
   motorCommands = "motorCommands" # 
+
+if __name__ == "__main__":
+  print(getGridIdxForXY(np.array([0,0])))
+  print(getGridIdxForXY(np.array([Map.X_limits[0], Map.Y_limits[0]])))
+  # print(np.array([Map.X_limits[0], Map.Y_limits[0]]))

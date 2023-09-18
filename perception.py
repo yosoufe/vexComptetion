@@ -20,7 +20,7 @@ class Perception:
     """
     input_tensor = self.preprocess(Image.fromarray(color))
     # print(input_tensor)
-    # input_tensor = input_tensor * 0.9
+    input_tensor = input_tensor * 0.9
     input_batch = input_tensor.unsqueeze(0).to('cuda')
     with torch.no_grad():
       output = self.model(input_batch)[0]
@@ -29,7 +29,8 @@ class Perception:
     ballPositionsInMeters = []
 
     object_index = 37
-    indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > 0.5) # 0.2
+    prob_threshold = 0.5
+    indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > prob_threshold)
     masks  = output["masks"][indeces_found]
     # print(output["labels"], masks)
     single_mask = np.zeros((360, 640), dtype=np.uint8)
@@ -94,7 +95,7 @@ class PerceptionNode(Node):
       positions[:3, :] = tennisBalls
       positionsInRobotFrame = np.sort(Config.cam2RobotT() @ positions, axis = 1)
       
-      print(positionsInRobotFrame[:2, :] * 39.3701, "in inches")
+      # print(positionsInRobotFrame[:2, :] * 39.3701, "in inches")
       self.ballPositionPublisher.publish(timestamp, positionsInRobotFrame)
 
 

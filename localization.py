@@ -46,6 +46,7 @@ class ATLocalizerNode(Node):
     if len(tags) == 0:
       return
     tag = tags[0]
+    # print(f"Tag {tag.tag_id} detected!")
     AtToCamera = self.tagToT(tag)
     landMarkToMap = Map.getLandmark(tag.tag_id)
     cameraToAt = np.linalg.inv(AtToCamera)
@@ -174,7 +175,11 @@ class PosePlotterNode(Node):
     self.ax.set_ylim(Map.Y_limits)
     self.fig.canvas.draw()
     self.fig.canvas.flush_events()
-      
+
+def generateLocalizationNodes():
+  RgbdOdometryNode()
+  ATLocalizerNode()
+  LocalizationNode()
 
 def test_at_localizerNode():
   from middleware import start_subscribers
@@ -209,9 +214,7 @@ def test_localization_node():
   from middleware import start_subscribers
   from robot_interface_node import ManualControl, SensorPublisherNode
   manualControl = ManualControl()
-  rgbdOdometry = RgbdOdometryNode()
-  atLocalizerNode = ATLocalizerNode()
-  localizationNode = LocalizationNode()
+  generateLocalizationNodes()
   sensorReader = SensorPublisherNode()
   posePlotter = PosePlotterNode()
   start_subscribers()
