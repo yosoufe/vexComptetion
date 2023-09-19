@@ -1,17 +1,24 @@
 from constants import getGridIdxForXY, getGridMap
 import numpy as np
+from inspect import getframeinfo, stack
+
+def debuginfo(message):
+    caller = getframeinfo(stack()[1][0])
+    print("%s:%d - %s" % (caller.filename, caller.lineno, message)) # python3 syntax print
 
 class LogOnlyChange:
   def __init__(self) -> None:
-    self._previous_message = None
-
-  def print(self, msg):
-    if self._previous_message != msg:
-      print(msg)
-      self._previous_message = msg
+    self._previous_messages = dict()
   
   def __call__(self, msg):
-    return self.print(msg)
+    caller = getframeinfo(stack()[1][0])
+    if not (caller.filename, caller.lineno) in self._previous_messages:
+      self._previous_messages[(caller.filename, caller.lineno)] = msg
+      print(caller.filename, caller.lineno, msg)
+    else:
+      if self._previous_messages[(caller.filename, caller.lineno) ] != msg:
+        self._previous_messages[(caller.filename, caller.lineno) ] = msg
+        print(caller.filename, caller.lineno, msg)
 
 def find_path(source, destination):
   gridMap = getGridMap()

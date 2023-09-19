@@ -3,8 +3,8 @@ import numpy as np
 
 
 class Config:
-  # ip = "192.168.50.206" # in practice sessions
-  ip = "192.168.68.68"  # at home
+  ip = "192.168.50.206" # in practice sessions
+  # ip = "192.168.68.68"  # at home
   fx = 460.92495728   # FOV(x) -> depth2xyz -> focal length (x)
   fy = 460.85058594   # FOV(y) -> depth2xyz -> focal length (y)
   cx = 315.10949707   # 640 (width) 320
@@ -64,7 +64,7 @@ class Config:
     import multiprocessing as mp
     if Config._robot is None:
       queue = mp.Queue(maxsize=1)
-      Config._robot = RemoteInterfaceNodeMultiProcessSafe(queue, Config.ip)
+      Config._robot = RemoteInterfaceNodeMultiProcessSafe(queue, Config.ip, port=9999)
       Config._robotNode = RemoteInterfaceNode(queue)
     return Config._robot
 
@@ -197,12 +197,12 @@ class _CompetitionMap:
     # convert to meters
     transform[:2, 3] = transform[:2, 3] * 0.0254
     # z component of the center
-    transform[2, 3] = 4 * 0.0254 / 2
+    transform[2, 3] = 10 * 0.0254
     return transform
 
 
-# Map = _CompetitionMap
-Map = _HomeMap
+Map = _CompetitionMap
+# Map = _HomeMap
 
 def getGridMap():
   if Map.GRID_MAP is None:

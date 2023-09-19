@@ -17,7 +17,8 @@ RUN cd Cortano \
     cupoch \
     pyapriltags \
     jupyter \
-    keyboard
+    keyboard \
+    ultralytics
 
 # Download model
 RUN wget --show-progress\
