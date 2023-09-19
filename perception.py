@@ -5,22 +5,26 @@ from PIL import Image
 import torch
 import cv2
 from constants import Config, Topics
-from ultralytics import YOLO
 from middleware import Node
+from ultralytics import YOLO
+
 
 class Perception:
   def __init__(self):
-    self.model = maskrcnn_resnet50_fpn(pretrained=True, pretrained_backbone=True)
-    self.model.eval()
-    self.model.to('cuda')
-    self.preprocess = transforms.Compose([ transforms.ToTensor(), ])
-    self.yolo = YOLO("yolov8n.pt")
+    # self.model = maskrcnn_resnet50_fpn(pretrained=True, pretrained_backbone=True)
+    # self.model.eval()
+    # self.model.to('cuda')
+    # self.preprocess = transforms.Compose([ transforms.ToTensor(), ])
+
+    # self.yolo = YOLO("yolov8n.pt")
+    self.yolo = YOLO("yolov8x.pt")
 
   
   def detect_balls(self, color, depth, show_mask = True):
     """ positions in camera frame in meters
     """
-    input_tensor = self.preprocess(Image.fromarray(color))
+    rotated_image = np.rot90(color)
+    input_tensor = self.preprocess(Image.fromarray(rotated_image))
     # print(input_tensor)
     # input_tensor = input_tensor * 0.9
     input_batch = input_tensor.unsqueeze(0).to('cuda')
@@ -35,9 +39,10 @@ class Perception:
     indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > prob_threshold)
     masks  = output["masks"][indeces_found]
     # print(output["labels"], masks)
-    single_mask = np.zeros((360, 640), dtype=np.uint8)
+    single_mask = np.zeros_like(depth, dtype=np.uint8)
     for idx in range(len(masks)):
-      reshaped_mask = masks[idx].reshape((360, 640))
+      rotated_mask = np.rot90(masks[idx], 3, axes=(1,2))
+      reshaped_mask = rotated_mask.reshape((360, 640))
       indecies = reshaped_mask>0.15
       single_mask[indecies] = 255
 
@@ -56,50 +61,50 @@ class Perception:
     # relative to camera frame
     return ballPositionsInMeters
   
-  def detect_ballsYolo(self, color, depth):
+  def detect_ballsYolo(self, color, depth, show_debug = True ):
     """ positions in camera frame in meters
     """
-    output = self.yolo(color, device="cuda")
-    print("----------------")
-    print(len(output))
+    rotated_image = np.rot90(color)
+    output = self.yolo(rotated_image, device="cuda", verbose=False, conf=0.15)
     # print(output)
-    for result in output:
-      print(result.boxes.cls.nelement() == 0)
-      print(result.boxes.cls)
-      print(result)
-      if result.boxes.cls.cpu() == 32:
-        print(result)
-        # print(result.__doc__)
-        # print(result.boxes.__doc__)
-        # print(result.boxes.cls)
-
-    # ballPositionsInMeters = []
-
-    # object_index = 37
-    # prob_threshold = 0.2
-    # indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > prob_threshold)
-    # masks  = output["masks"][indeces_found]
-    # # print(output["labels"], masks)
-    # single_mask = np.zeros((360, 640), dtype=np.uint8)
-    # for idx in range(len(masks)):
-    #   reshaped_mask = masks[idx].reshape((360, 640))
-    #   indecies = reshaped_mask>0.15
-    #   single_mask[indecies] = 255
-
-    #   ball_depth = depth * (reshaped_mask > 0)
-    #   xyz = self.get_XYZ(ball_depth)
-    #   num_pixels = np.sum(ball_depth > 0)
-
-    #   if num_pixels > 0:
-    #     average_xyz = np.sum(xyz, axis=0) / num_pixels / 1000.0 # convert to meters
-    #     ballPositionsInMeters.append(average_xyz)
+    result = output[0]
+    bboxes = np.array(result.boxes.xyxy.cpu(), dtype="int")
+    classes = np.array(result.boxes.cls.cpu(), dtype="int")
+    tennisBallsIdx = classes == 32
+    tennisBallBoxes = bboxes[tennisBallsIdx]
     
-    # if show_mask:
-    #   cv2.imshow("color", single_mask)
-    #   cv2.waitKey(1)
+    ballPositionsInMeters = []
+    single_mask = np.zeros_like(depth, dtype=np.uint8)
 
-    # # relative to camera frame
-    # return ballPositionsInMeters
+    for cls, bbox in zip(classes[tennisBallsIdx], tennisBallBoxes):
+      (x, y, x2, y2) = bbox
+      # shrink bbx
+      factor = 0.5 # shrink factor
+      (rx, ry) = (x2 - x)/2.0, (y2 - y)/2.0
+      (cx, cy) = ((x2 + x)/2.0, (y2 + y)/2.0)
+      (x, y, x2, y2) = (cx - rx*factor, cy - ry*factor, cx + rx*factor, cy + ry *factor)
+      (x,y,x2,y2) = tuple([int(np.round(i)) for i in (x, y, x2, y2)])
+      # rotate bounding box according to depth
+      (x, y, x2, y2) = (640 - y,x, 640- y2, x2)
+      mask = np.zeros_like(depth, np.int8)
+      mask[min(y,y2):max(y,y2), min(x,x2):max(x,x2)] = 1
+      single_mask[min(y,y2):max(y,y2), min(x,x2):max(x,x2)] = 255
+      ball_depth = depth * mask
+      xyz = self.get_XYZ(ball_depth)
+      num_pixels = np.sum(ball_depth > 0)
+      if num_pixels > 0:
+        average_xyz = np.sum(xyz, axis=0) / num_pixels / 1000.0 # convert to meters
+        ballPositionsInMeters.append(average_xyz)
+      if show_debug:
+        cv2.rectangle(color, (x, y), (x2, y2), (0, 0, 225), 2)
+        cv2.putText(color, str(cls), (x2, y - 5), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 225), 2)
+    
+    if show_debug:
+      cv2.imshow("single_mask", single_mask)
+      cv2.imshow("color", color)
+      cv2.waitKey(1)
+    
+    return ballPositionsInMeters
 
   def get_XYZ(self, depth_image):
     h, w = (Config.height, Config.width)
@@ -134,7 +139,6 @@ class PerceptionNode(Node):
     color, depth = rgbd
     # ballPositionsInMeters = self.perception.detect_balls(color, depth)
     ballPositionsInMeters = self.perception.detect_ballsYolo(color, depth)
-    return
     n_balls = len(ballPositionsInMeters)
     if (n_balls > 0):
       # convert the ball positions from 

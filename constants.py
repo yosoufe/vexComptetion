@@ -3,8 +3,8 @@ import numpy as np
 
 
 class Config:
-  ip = "192.168.50.206" # in practice sessions
-  # ip = "192.168.68.68"  # at home
+  # ip = "192.168.50.206" # in practice sessions
+  ip = "192.168.68.68"  # at home
   fx = 460.92495728   # FOV(x) -> depth2xyz -> focal length (x)
   fy = 460.85058594   # FOV(y) -> depth2xyz -> focal length (y)
   cx = 315.10949707   # 640 (width) 320
@@ -12,14 +12,6 @@ class Config:
   width = 640
   height = 360
   camera_params = (fx, fy, cx, cy)
-
-  # at_zero_rot = np.array([[9.98562465e-01, -5.35939290e-02, -8.32814924e-04],
-  #                         [2.50183746e-02,  4.52288881e-01,  8.91520527e-01],
-  #                         [-4.74034149e-02, -8.90259771e-01,  4.52979533e-01]])
-
-  # at_zero_position = np.array([[0.16881644393],
-  #                              [0.09036967583],
-  #                              [0.47853268686]])
 
   # Robot frame in camera frame
   at_zero_rot = np.array([[0.10036645, -0.11373534, -0.98842847],
@@ -31,10 +23,10 @@ class Config:
 
   _cam2RobotT = None
   _robot2CamT = None
-  _AT2Robot = np.array([[0, -1, 0, 0],
-                       [-1, 0, 0, 0],
-                       [0, 0, -1, 0],
-                       [0, 0, 0, 1]], dtype=float)
+  _CalibrationAT2Robot = np.array([[0, -1, 0, 0],
+                                   [-1, 0, 0, 0],
+                                   [0, 0, -1, 0],
+                                   [0, 0, 0, 1]], dtype=float)
 
   @staticmethod
   def cam2RobotT():
@@ -43,7 +35,7 @@ class Config:
       AT2Camera[:3, :3] = Config.at_zero_rot
       AT2Camera[:3, 3] = Config.at_zero_position.squeeze()
       # print(AT2Camera)
-      Config._cam2RobotT = Config._AT2Robot @ np.linalg.inv(AT2Camera)
+      Config._cam2RobotT = Config._CalibrationAT2Robot @ np.linalg.inv(AT2Camera)
     return Config._cam2RobotT
 
   @staticmethod
@@ -201,8 +193,8 @@ class _CompetitionMap:
     return transform
 
 
-Map = _CompetitionMap
-# Map = _HomeMap
+# Map = _CompetitionMap
+Map = _HomeMap
 
 def getGridMap():
   if Map.GRID_MAP is None:
@@ -224,6 +216,7 @@ class Topics:
   fusedPose = "fusedPose"         # robot frame relative to map frame
   ballPositions = "ballPositions" # relative to robot frame
   motorCommands = "motorCommands" # 
+  sensors = "sensors"             # sensors: Potentiometer and switches
 
 if __name__ == "__main__":
   print(getGridIdxForXY(np.array([0,0])))

@@ -43,6 +43,6 @@ if __name__ == "__main__":
     # print(f"left: {robot.motor[MOTOR_LEFT]}")
     # print(f"right: {robot.motor[MOTOR_RIGHT]}")
     # print(f"right key: {right}")
-    # print(sensors)
+    print(sensors)
     # print(f"--------------------")
 

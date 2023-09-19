@@ -8,12 +8,28 @@ import numpy as np
 # current orders
 # ExploreForTennisBallsMission
 # LocalGoToMission
+# CloseArmMission
+# MoveArmUpMission
+#
 # NoMission for now
-# Grab the ball
 # ExploreForLocalizationMission
 # GlobalGoTo the other side
 # Drop the other side
 # Do it again
+
+class CompetitionConstant:
+  ExploreRotation = 20
+  LOCAL_CONTROLLER_FORWARD_KP = 60
+  LOCAL_CONTROLLER_FORWARD_KI = 1
+  LOCAL_CONTROLLER_ROTATIONAL_KP = 30
+
+class HomeConstants:
+  ExploreRotation = 20
+  LOCAL_CONTROLLER_FORWARD_KP = 80
+  LOCAL_CONTROLLER_FORWARD_KI = 0.1
+  LOCAL_CONTROLLER_ROTATIONAL_KP = 30
+
+Constants = HomeConstants
 
 
 class Mission(ABC):
@@ -50,7 +66,7 @@ class ExploreForLocalizationMission(Mission):
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
     if self.pAndC.latestRobotPoseTimestamp is None:
-      self.pAndC.actuation.spinCounterClockWise(20)
+      self.pAndC.actuation.spinCounterClockWise(Constants.ExploreRotation)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return self
 
@@ -77,8 +93,6 @@ class ExploreForTennisBallsMission(Mission):
         self.pAndC.motorCmdsPub.publish(
             timestamp, self.pAndC.actuation.generateMotorCmd())
         self.conditionMetCounter = self.conditionMetCounter + 1
-        # set the target position
-        self.pAndC.targetPositionInRobotFrame = self.pAndC.latestBallPositionsInRobotFrame
         # TODO return the next mission
         return LocalGoToMission(self.pAndC, timestamp)
       
@@ -87,7 +101,7 @@ class ExploreForTennisBallsMission(Mission):
     
     self.pAndC.log(f"{self.conditionMetCounter}, {self.pAndC.latestBallPositionsTimestamp}, {self.initTimestamp}")
 
-    self.pAndC.actuation.spinCounterClockWise(22)
+    self.pAndC.actuation.spinCounterClockWise(Constants.ExploreRotation)
     self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
     return self
 
@@ -95,28 +109,76 @@ class ExploreForTennisBallsMission(Mission):
 class LocalGoToMission(Mission):
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
-    self.forwardPID = PID(kp=60, ki=0, kd=0)
-    self.ccwSpinPID = PID(kp=30, ki=0, kd=0)
+    self.forwardPID = PID(kp=Constants.LOCAL_CONTROLLER_FORWARD_KP,
+                          ki=0,
+                          kd=0)
+    self.forwardPIDNearby = PID(kp=Constants.LOCAL_CONTROLLER_FORWARD_KP,
+                          ki=Constants.LOCAL_CONTROLLER_FORWARD_KI,
+                          kd=0)
+    self.ccwSpinPID = PID(kp=Constants.LOCAL_CONTROLLER_ROTATIONAL_KP,
+                          ki=0,
+                          kd=0)
   
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
-    # print(self.pAndC.targetPositionInRobotFrame)
-    localTarget = self.pAndC.targetPositionInRobotFrame[:2, 0] - Config.zero_offset
-    if np.linalg.norm(localTarget) < 0.2:
-      self.pAndC.actuation.apply()
-      return NoMission(self.pAndC, timestamp)
 
-    newLocalTarget = calculateTarget_LookAhead(np.zeros_like(localTarget), localTarget)
+    if abs(self.pAndC.latestBallPositionsTimestamp - timestamp) > 0.5:
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return ExploreForTennisBallsMission(self.pAndC, timestamp)
+
+    # set the target position
+    localTarget = self.pAndC.latestBallPositionsInRobotFrame[:2, 0] - Config.zero_offset
+    if np.linalg.norm(localTarget) < 0.1:
+      print("localTarget:", localTarget)
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      self.pAndC.log("LocalGoToMission: Target reached!")
+      return CloseArmMission(self.pAndC, timestamp)
+
+    newLocalTarget, isClose = calculateTarget_LookAhead(np.zeros_like(localTarget), localTarget, 0.2)
     forwardErrorMeter, ccwSpinErrorRadian = calculateLinearAndRotationalError(np.identity(4, dtype=float), newLocalTarget)
 
     spinCommand = self.ccwSpinPID.calculate(ccwSpinErrorRadian)
-    forwardCommand = self.forwardPID.calculate(forwardErrorMeter)
+    if not isClose:
+      forwardCommand = self.forwardPID.calculate(forwardErrorMeter)
+    else:
+      forwardCommand = self.forwardPIDNearby.calculate(forwardErrorMeter)
     self.pAndC.actuation.reset()
     self.pAndC.actuation.spinCounterClockWise(spinCommand)
     self.pAndC.actuation.goForward(forwardCommand)
-    self.pAndC.log(f"{forwardCommand}, {spinCommand}")
+    # self.pAndC.log(f"errors: {forwardErrorMeter}, {ccwSpinErrorRadian}")
+    # self.pAndC.log(f"motor cammands: {forwardCommand}, {spinCommand}")
     self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
     return self
+
+class CloseArmMission(Mission):
+  def __init__(self, pAndC, initTimestamp):
+    super().__init__(pAndC, initTimestamp)
+  
+  def tick(self, timestamp):
+    self.pAndC.actuation.reset()
+    if timestamp - self.initTimestamp < 1:
+      # close arm for 1 second
+      self.pAndC.actuation.clawCommand(32)
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return self
+    else:
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return MoveArmUpMission(self.pAndC, timestamp)
+
+class MoveArmUpMission(Mission):
+  def __init__(self, pAndC, initTimestamp):
+    super().__init__(pAndC, initTimestamp)
+  
+  def tick(self, timestamp):
+    self.pAndC.actuation.reset()
+    if timestamp - self.initTimestamp < 2.5:
+      # close arm for 1 second
+      self.pAndC.actuation.armCommand(42)
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return self
+    else:
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return NoMission(self.pAndC, timestamp)
 
 class PlanningAndControlNode(Node):
   def __init__(self):
@@ -124,6 +186,7 @@ class PlanningAndControlNode(Node):
     self.motorCmdsPub = self.create_publisher(Topics.motorCommands)
     self.ballPositionSub = self.create_subscriber(Topics.ballPositions, self.ballPosition_cb)
     self.localizationSub = self.create_subscriber(Topics.fusedPose, self.localization_cb)
+    self.sensorsSub = self.create_subscriber(Topics.sensors, self.sensors_cb)
     self.tickSub = self.create_subscriber(Topics.isMoving, self.tick)
     self.actuation = None
     self.latestBallPositionsInMapFrame = None
@@ -133,7 +196,8 @@ class PlanningAndControlNode(Node):
     self.latestRobotPoseTimestamp = None
     self.ballPositionsInMap = None
     self.currentMission = None
-    self.targetPositionInRobotFrame = None
+    self.sensors = None
+    self.latestSensorsTimestamp = None
     self.log = None
   
   def ballPosition_cb(self, timestamp, ballPositions):
@@ -145,6 +209,10 @@ class PlanningAndControlNode(Node):
     self.latestRobotPoseTimestamp = timestamp
     if not self.latestBallPositionsInRobotFrame is None:
       self.ballPositionsInMap = self.latestRobotPose @ self.latestBallPositionsInRobotFrame
+  
+  def sensors_cb(self, timestamp, sensors):
+    self.latestSensorsTimestamp = timestamp
+    self.sensors = sensors
 
   def tick(self, timestamp, isMoving):
     """ This is subscribing to IsMoving 

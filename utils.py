@@ -14,21 +14,22 @@ class LogOnlyChange:
     caller = getframeinfo(stack()[1][0])
     if not (caller.filename, caller.lineno) in self._previous_messages:
       self._previous_messages[(caller.filename, caller.lineno)] = msg
-      print(caller.filename, caller.lineno, msg)
+      print(f"{caller.filename}:{caller.lineno} , {msg}")
     else:
       if self._previous_messages[(caller.filename, caller.lineno) ] != msg:
         self._previous_messages[(caller.filename, caller.lineno) ] = msg
-        print(caller.filename, caller.lineno, msg)
+        print(f"{caller.filename}:{caller.lineno} , {msg}")
+
 
 def find_path(source, destination):
   gridMap = getGridMap()
 
 
-def calculateTarget_LookAhead(currentPosition, destination):
-  lookAheadDistance = 0.20 # meters
+def calculateTarget_LookAhead(currentPosition, destination, lookAheadDistance = 0.20):
   distanceToTarget = np.linalg.norm(destination - currentPosition)
   lookAheadDistance = min(lookAheadDistance, distanceToTarget)
-  return currentPosition + (destination - currentPosition) / distanceToTarget * lookAheadDistance
+  isClose = abs(distanceToTarget - lookAheadDistance) < 0.01
+  return currentPosition + (destination - currentPosition) / distanceToTarget * lookAheadDistance, isClose
 
 
 def calculateLinearAndRotationalError(currentPose, targetPosition):

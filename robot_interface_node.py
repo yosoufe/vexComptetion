@@ -16,7 +16,7 @@ class Actuation:
     self.rightMotor = 0
     self.leftMotor = 0
     self.clawMotor = 0
-    self.armMotor = 0
+    self.armMotor = 10
 
   def goForward(self, command):
     self.rightMotor += command
@@ -59,7 +59,7 @@ class ManualControl:
     else:
       self.actuation.armCommand(-1)
 
-    self.actuation.clawCommand((robot.keys["q"] - robot.keys["e"])*42)
+    self.actuation.clawCommand((robot.keys["e"] - robot.keys["q"])*22)
     self.actuation.update(robot)
     
 class ManualControlNode(Node):
@@ -88,6 +88,7 @@ class SensorPublisherNode(Node):
     super().__init__("SensorReader")
     self.rgbd_pub = self.create_publisher(Topics.rgbd)
     self.isMoving_pub = self.create_publisher(Topics.isMoving)
+    self.sensorPub = self.create_publisher(Topics.sensors)
 
   def publishSensorData(self, robot):
     color, depth, sensors = robot.read()
@@ -95,6 +96,7 @@ class SensorPublisherNode(Node):
     self.rgbd_pub.publish(timestamp, (color, depth), block=False)
     isMoving = ((robot.motor[Actuation.RIGHT_MOTOR_INDEX] != 0) or (robot.motor[Actuation.LEFT_MOTOR_INDEX] != 0))
     self.isMoving_pub.publish(timestamp, isMoving)
+    self.sensorPub.publish(timestamp, sensors[1:])
 
 class SensorReaderLoggerNode(Node):
   def __init__(self):
