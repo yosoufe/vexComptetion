@@ -20,7 +20,8 @@ class ATLocalizerNode(Node):
                                quad_decimate=1.0,
                                quad_sigma=0.0,
                                refine_edges=1,
-                               decode_sharpening=0.25,
+                              #  decode_sharpening=0.25,
+                               decode_sharpening=0.4,
                                debug=0)
     tags = self.detector.detect(
       img = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY),
@@ -176,10 +177,12 @@ class PosePlotterNode(Node):
     self.fig.canvas.draw()
     self.fig.canvas.flush_events()
 
-def generateLocalizationNodes():
+def generateLocalizationNodes(withGraph = False):
   RgbdOdometryNode()
   ATLocalizerNode()
   LocalizationNode()
+  if withGraph:
+    PosePlotterNode()
 
 def test_at_localizerNode():
   from middleware import start_subscribers

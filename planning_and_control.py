@@ -10,18 +10,18 @@ import numpy as np
 # LocalGoToMission
 # CloseArmMission
 # MoveArmUpMission
+# ExploreForLocalizationMission
+# GlobalGoToMission # the other side
 #
 # NoMission for now
-# ExploreForLocalizationMission
-# GlobalGoTo the other side
 # Drop the other side
 # Do it again
 
 class CompetitionConstant:
-  ExploreRotation = 20
-  LOCAL_CONTROLLER_FORWARD_KP = 60
-  LOCAL_CONTROLLER_FORWARD_KI = 1
-  LOCAL_CONTROLLER_ROTATIONAL_KP = 30
+  ExploreRotation = 25
+  LOCAL_CONTROLLER_FORWARD_KP = 85
+  LOCAL_CONTROLLER_FORWARD_KI = 0.1
+  LOCAL_CONTROLLER_ROTATIONAL_KP = 35
 
 class HomeConstants:
   ExploreRotation = 20
@@ -29,7 +29,7 @@ class HomeConstants:
   LOCAL_CONTROLLER_FORWARD_KI = 0.1
   LOCAL_CONTROLLER_ROTATIONAL_KP = 30
 
-Constants = HomeConstants
+Constants = CompetitionConstant
 
 
 class Mission(ABC):
@@ -52,31 +52,6 @@ class NoMission(Mission):
   def tick(self, timestamp):
     return self
 
-
-class ExploreForLocalizationMission(Mission):
-  """A mission to explore the map until the first
-  localization message arrives. This means we have seen
-  an AprilTag.
-
-  Just by turning right
-  """
-  def __init__(self, pAndC, initTimestamp):
-    super().__init__(pAndC, initTimestamp)
-
-  def tick(self, timestamp):
-    self.pAndC.actuation.reset()
-    if self.pAndC.latestRobotPoseTimestamp is None:
-      self.pAndC.actuation.spinCounterClockWise(Constants.ExploreRotation)
-      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-      return self
-
-    else:
-      # stop the motors
-      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-      # and return the Mission.
-      # TODO: choose the next mission properly
-      return NoMission(self.pAndC, timestamp)
-
 class ExploreForTennisBallsMission(Mission):
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
@@ -88,7 +63,7 @@ class ExploreForTennisBallsMission(Mission):
         self.pAndC.latestBallPositionsTimestamp > self.initTimestamp:
 
       self.initTimestamp = timestamp
-      if self.conditionMetCounter > -1:
+      if self.conditionMetCounter > -1 :
         # stop the robot
         self.pAndC.motorCmdsPub.publish(
             timestamp, self.pAndC.actuation.generateMotorCmd())
@@ -122,7 +97,7 @@ class LocalGoToMission(Mission):
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
 
-    if abs(self.pAndC.latestBallPositionsTimestamp - timestamp) > 0.5:
+    if abs(self.pAndC.latestBallPositionsTimestamp - timestamp) > 2:
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return ExploreForTennisBallsMission(self.pAndC, timestamp)
 
@@ -178,7 +153,78 @@ class MoveArmUpMission(Mission):
       return self
     else:
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return ExploreForLocalizationMission(self.pAndC, timestamp)
+
+class ExploreForLocalizationMission(Mission):
+  """A mission to explore the map until the first
+  localization message arrives. This means we have seen
+  an AprilTag.
+
+  Just by turning right
+  """
+  def __init__(self, pAndC, initTimestamp):
+    super().__init__(pAndC, initTimestamp)
+
+  def tick(self, timestamp):
+    self.pAndC.actuation.reset()
+    if self.pAndC.latestRobotPoseTimestamp is None or \
+      timestamp - self.pAndC.latestRobotPoseTimestamp > 1:
+      self.pAndC.actuation.spinCounterClockWise(Constants.ExploreRotation)
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return self
+
+    else:
+      # stop the motors
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      # and return the Mission.
+      # TODO: choose the next mission properly
+      return GlobalGoToMission(self.pAndC, timestamp)
+
+class GlobalGoToMission(Mission):
+  def __init__(self, pAndC, initTimestamp):
+    super().__init__(pAndC, initTimestamp)
+    self.forwardPID = PID(kp=Constants.LOCAL_CONTROLLER_FORWARD_KP,
+                          ki=0,
+                          kd=0)
+    self.forwardPIDNearby = PID(kp=Constants.LOCAL_CONTROLLER_FORWARD_KP,
+                          ki=Constants.LOCAL_CONTROLLER_FORWARD_KI,
+                          kd=0)
+    self.ccwSpinPID = PID(kp=Constants.LOCAL_CONTROLLER_ROTATIONAL_KP,
+                          ki=0,
+                          kd=0)
+  
+  def tick(self, timestamp):
+    self.pAndC.actuation.reset()
+
+    # set the target position
+    robotPose = self.pAndC.latestRobotPose.copy()
+    robotPosition2d = robotPose[:2, 3]
+    globalTarget = robotPose[:2, 3].copy()
+    globalTarget[0] = 1.0
+    #- Config.zero_offset
+    errorPosition2D = globalTarget - robotPosition2d
+    if np.linalg.norm(errorPosition2D) < 0.1:
+      print("robotPose", robotPose)
+      print("errorPosition2D:", errorPosition2D)
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      self.pAndC.log("LocalGoToMission: Target reached!")
       return NoMission(self.pAndC, timestamp)
+
+    newTarget, isClose = calculateTarget_LookAhead(robotPosition2d, globalTarget, 0.2)
+    forwardErrorMeter, ccwSpinErrorRadian = calculateLinearAndRotationalError(robotPose, newTarget)
+
+    spinCommand = self.ccwSpinPID.calculate(ccwSpinErrorRadian)
+    if not isClose:
+      forwardCommand = self.forwardPID.calculate(forwardErrorMeter)
+    else:
+      forwardCommand = self.forwardPIDNearby.calculate(forwardErrorMeter)
+    self.pAndC.actuation.reset()
+    self.pAndC.actuation.spinCounterClockWise(spinCommand)
+    self.pAndC.actuation.goForward(forwardCommand)
+    self.pAndC.log(f"errors: {forwardErrorMeter}, {ccwSpinErrorRadian}")
+    self.pAndC.log(f"motor cammands: {forwardCommand}, {spinCommand}")
+    self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+    return self
 
 class PlanningAndControlNode(Node):
   def __init__(self):
@@ -226,7 +272,8 @@ class PlanningAndControlNode(Node):
     
     # init mission to find an april tag
     if self.currentMission is None:
-      self.currentMission = ExploreForTennisBallsMission(self, timestamp)
+      # self.currentMission = ExploreForTennisBallsMission(self, timestamp)
+      self.currentMission = ExploreForLocalizationMission(self, timestamp)
 
     self.log(f"Current Mission: {type(self.currentMission).__name__}")
     nextMission = self.currentMission.tick(timestamp)
@@ -273,7 +320,7 @@ def test_planning_and_control_node():
   robot = Config.getRobot()
   sensorPublisherNode = SensorPublisherNode()
   planningAndControlNode = PlanningAndControlNode()
-  generateLocalizationNodes()
+  generateLocalizationNodes(withGraph = True)
   perceptionNode = PerceptionNode()
   start_subscribers()
   

@@ -10,19 +10,19 @@ from ultralytics import YOLO
 
 
 class Perception:
-  def __init__(self):
-    # self.model = maskrcnn_resnet50_fpn(pretrained=True, pretrained_backbone=True)
-    # self.model.eval()
-    # self.model.to('cuda')
-    # self.preprocess = transforms.Compose([ transforms.ToTensor(), ])
-
-    # self.yolo = YOLO("yolov8n.pt")
-    self.yolo = YOLO("yolov8x.pt")
+  def __init__(self):  
+    self.model = None
+    self.yolo = None
 
   
   def detect_balls(self, color, depth, show_mask = True):
     """ positions in camera frame in meters
     """
+    if self.model is None:
+      self.model = maskrcnn_resnet50_fpn(pretrained=True, pretrained_backbone=True)
+      self.model.eval()
+      self.model.to('cuda')
+      self.preprocess = transforms.Compose([ transforms.ToTensor(), ])
     rotated_image = np.rot90(color)
     input_tensor = self.preprocess(Image.fromarray(rotated_image))
     # print(input_tensor)
@@ -64,6 +64,9 @@ class Perception:
   def detect_ballsYolo(self, color, depth, show_debug = True ):
     """ positions in camera frame in meters
     """
+    if self.yolo is None:
+      # self.yolo = YOLO("yolov8n.pt")
+      self.yolo = YOLO("yolov8x.pt")
     rotated_image = np.rot90(color)
     output = self.yolo(rotated_image, device="cuda", verbose=False, conf=0.15)
     # print(output)
