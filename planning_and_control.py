@@ -324,8 +324,10 @@ def test_planning_and_control_node():
   perceptionNode = PerceptionNode()
   start_subscribers()
   
+
   while True:
     robot.update()
+
     sensorPublisherNode.publishSensorData(robot)
 
 

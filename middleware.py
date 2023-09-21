@@ -1,5 +1,7 @@
 import multiprocessing as mp
 import select
+import copy
+import queue
 
 class _Broker:
   def __init__(self):
@@ -47,9 +49,8 @@ class _GlobalObjs:
 def start_subscribers():
   set_of_nodes_with_subscribers = set(_GlobalObjs._broker.nodes_with_subscribers)
   for node in set_of_nodes_with_subscribers:
-    print(f"Starting process of node {node._name}!!")
     node.start()
-    print(f"Process of node {node._name} started!!")
+    print(f"{node._name} started!!")
 
 
 def printOnce(msg):
@@ -91,7 +92,10 @@ class Node:
       conncections, _, _ = select.select(tsts, [], [])
       for connection in conncections:
         queu = mmmm[connection] 
-        topic, timestamp, msg = queu.get()
+        item = queu.get()
+        topic, timestamp, msg = copy.deepcopy(item)
+        del item
+        # topic, timestamp, msg = copy.deepcopy(queu.get())
         subscriber = self._topic2Subscription[topic]
         subscriber.callback(timestamp, msg)
   
@@ -114,7 +118,26 @@ class _Publisher:
       try:
         pub_queue.put((self._topic, timestamp, msg), block = block)
       except Exception:
-        pass
+        if not block:
+          # if full, read one to open a slot and then put one
+          if pub_queue.full():
+            try:
+              item = pub_queue.get(False)
+              del item
+            except queue.Empty:
+              pass
+            except:
+              pass
+          # this works onluy because there is only one subsctiberf for each topic
+          # We might need a lock for this before openning an slot
+          try:
+            pub_queue.put((self._topic, timestamp, msg), block = block)
+            break
+          except:
+            pass
+
+
+
 
   def _add_pub_queue(self, queue):
     self._pub_queues.append(queue)

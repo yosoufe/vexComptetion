@@ -16,12 +16,12 @@ class ATLocalizerNode(Node):
     from pyapriltags import Detector
     if self.detector is None:
       self.detector = Detector(families='tag16h5',
-                               nthreads=1,
+                               nthreads=4,
                                quad_decimate=1.0,
                                quad_sigma=0.0,
                                refine_edges=1,
                               #  decode_sharpening=0.25,
-                               decode_sharpening=0.3,
+                               decode_sharpening=1.2,
                                debug=0)
     tags = self.detector.detect(
       img = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY),
@@ -29,7 +29,9 @@ class ATLocalizerNode(Node):
       camera_params = Config.camera_params,
       tag_size = Map.tag_size)
     
-    tags = [tag for tag in tags if tag.decision_margin > 50 and tag.tag_id in Map.tag_ids]
+    tags = [tag for tag in tags if tag.decision_margin > 80 and tag.tag_id in Map.tag_ids]
+    print( [tag.tag_id for tag in tags])
+    # print(tag)
 
     if debug:
       for tag in tags:
