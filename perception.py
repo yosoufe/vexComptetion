@@ -131,13 +131,21 @@ class PerceptionNode(Node):
   def __init__(self):
     super().__init__("PerceptionNode")
     self.rgbdSub = self.create_subscriber(Topics.rgbd, self.rgbd_cb)
+    self.eabledSub = self.create_subscriber(Topics.switchPerception, self.enabled_cb)
     self.ballPositionPublisher = self.create_publisher(Topics.ballPositions)
+    self.enabled = False
     
     self.perception = None
+  
+  def enabled_cb(self, timestamp, enabled):
+    self.enabled = enabled
 
   def rgbd_cb(self, timestamp, rgbd):
     if self.perception is None:
       self.perception = Perception()
+    
+    if not self.enabled:
+      return
     
     color, depth = rgbd
     # ballPositionsInMeters = self.perception.detect_balls(color, depth)

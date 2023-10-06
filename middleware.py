@@ -115,29 +115,27 @@ class _Publisher:
       printOnce(f"There is no subscriber for topic {self._topic}")
       return
     for pub_queue in self._pub_queues:
-      try:
-        pub_queue.put((self._topic, timestamp, msg), block = block)
-      except Exception:
-        if not block:
-          # if full, read one to open a slot and then put one
-          if pub_queue.full():
-            try:
-              item = pub_queue.get(False)
-              del item
-            except queue.Empty:
-              pass
-            except:
-              pass
-          # this works onluy because there is only one subsctiberf for each topic
-          # We might need a lock for this before openning an slot
-          try:
-            pub_queue.put((self._topic, timestamp, msg), block = block)
-            break
-          except:
-            pass
-
-
-
+        try:
+          pub_queue.put((self._topic, timestamp, msg), block = block)
+        except Exception:
+          if not block:
+            with pub_queue._rlock:
+              # if full, read one to open a slot and then put one
+              if pub_queue.full():
+                try:
+                  item = pub_queue.get(False)
+                  del item
+                except queue.Empty:
+                  pass
+                except:
+                  pass
+              # this works only because there is only one subscriber for each topic
+              # We might need a lock for this before opening an slot
+              try:
+                pub_queue.put((self._topic, timestamp, msg), block = False)
+                break
+              except:
+                pass
 
   def _add_pub_queue(self, queue):
     self._pub_queues.append(queue)

@@ -14,11 +14,13 @@ class LogOnlyChange:
     caller = getframeinfo(stack()[1][0])
     if not (caller.filename, caller.lineno) in self._previous_messages:
       self._previous_messages[(caller.filename, caller.lineno)] = msg
-      print(f"{caller.filename}:{caller.lineno} , {msg}")
+      # print(f"{caller.filename}:{caller.lineno} , {msg}")
+      print(f"{msg}")
     else:
       if self._previous_messages[(caller.filename, caller.lineno) ] != msg:
         self._previous_messages[(caller.filename, caller.lineno) ] = msg
-        print(f"{caller.filename}:{caller.lineno} , {msg}")
+        # print(f"{caller.filename}:{caller.lineno} , {msg}")
+        print(f"{msg}")
 
 
 def find_path(source, destination):

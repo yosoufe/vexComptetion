@@ -3,8 +3,8 @@ import numpy as np
 
 
 class Config:
-  ip = "192.168.50.206" # in practice sessions
-  # ip = "192.168.68.68"  # at home
+  # ip = "192.168.50.206" # in practice sessions
+  ip = "192.168.68.68"  # at home
   fx = 460.92495728   # FOV(x) -> depth2xyz -> focal length (x)
   fy = 460.85058594   # FOV(y) -> depth2xyz -> focal length (y)
   cx = 315.10949707   # 640 (width) 320
@@ -193,8 +193,8 @@ class _CompetitionMap:
     return transform
 
 
-Map = _CompetitionMap
-# Map = _HomeMap
+# Map = _CompetitionMap
+Map = _HomeMap
 
 def getGridMap():
   if Map.GRID_MAP is None:
@@ -217,6 +217,11 @@ class Topics:
   ballPositions = "ballPositions" # relative to robot frame
   motorCommands = "motorCommands" # 
   sensors = "sensors"             # sensors: Potentiometer and switches
+  switchPerception = "switchPerception" # to enable or disable perception
+
+  # for debugging
+  targetPose = "targetPose" # the target pose
+  globalTarget = "globalTarget"
 
 if __name__ == "__main__":
   print(getGridIdxForXY(np.array([0,0])))

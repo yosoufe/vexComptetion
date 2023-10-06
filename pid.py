@@ -1,3 +1,5 @@
+import numpy as np
+
 class PID:
   def __init__(self, kp, ki, kd, output_limit = None):
     self.kp = kp
@@ -11,12 +13,25 @@ class PID:
     self.prevInput = None
 
   def calculate(self, input):
-    return self._p_term(input) + self._i_term(input) + self._d_term(input)
+    if not isinstance(input, np.ndarray):
+      input = np.array((input,), dtype=float)
+    proposedOutput = self._p_term(input) + self._i_term(input) + self._d_term(input)
+    
+    if not self.output_limit is None:
+      # ignore the i_term. It is saturated.
+      saturated_dimensions = np.logical_or(proposedOutput > self.output_limit[1], proposedOutput < self.output_limit[0])
+      proposedOutput[saturated_dimensions] = self._p_term(input) + self._d_term(input)
+      self.integral = self._i_term(input)[np.logical_not(saturated_dimensions)]
+      return proposedOutput.squeeze()
+    else:
+      self.integral = self._i_term(input)
+      
+    return proposedOutput.squeeze()
 
   def _p_term(self, input):
     return self.kp * input
 
-  def _i_term(self, input):
+  def _d_term(self, input):
     if self.kd == 0:
       return 0
 
@@ -28,15 +43,31 @@ class PID:
     self.prevInput = input
     return cmd
 
-  def _d_term(self, input):
+  def _i_term(self, input):
     if self.ki == 0:
       return 0
-    
-    # anti wind-up against saturation
-    proposed_integral = self.integral + input * self.ki
-    if self.output_limit != None:
-      if proposed_integral > self.output_limit[1] or proposed_integral < self.output_limit[0]:
-        return self.integral
-    
-    self.integral = proposed_integral
-    return self.integral
+    return self.integral + input * self.ki
+
+
+def test_scalar():
+  pid = PID(10, 0.2, 1, [-5, 8])
+  pid.reset()
+  print(pid.calculate(2))
+  pid = PID(10, 0.2, 1)
+  pid.reset()
+  print(pid.calculate(2))
+
+def test_vector():
+  pid = PID(10, 0.2, 1, np.array([[-5, -5], [8, 8]], dtype=float))
+  pid.reset()
+  print(pid.calculate(np.array(([1,2]),dtype=float)))
+
+  pid = PID(10, 0.2, 1)
+  pid.reset()
+  print(pid.calculate(np.array(([1,2]),dtype=float)))
+  print(pid.calculate(np.array(([0.5,1.5]),dtype=float)))
+
+
+if __name__ == "__main__":
+  test_scalar()
+  test_vector()

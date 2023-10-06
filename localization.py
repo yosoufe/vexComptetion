@@ -3,6 +3,7 @@ import numpy as np
 from constants import Config, Topics, Map
 import cv2
 import cupoch as cph
+from planning_and_control import PlotterNode
 cph.initialize_allocator(cph.PoolAllocation, 1000000000)
 
 class ATLocalizerNode(Node):
@@ -29,8 +30,11 @@ class ATLocalizerNode(Node):
       camera_params = Config.camera_params,
       tag_size = Map.tag_size)
     
-    tags = [tag for tag in tags if tag.decision_margin > 80 and tag.tag_id in Map.tag_ids]
-    print( [tag.tag_id for tag in tags])
+    tags = [tag for tag in tags if tag.decision_margin > 260 and
+            tag.tag_id in Map.tag_ids
+            and tag.pose_err < 1e-7]
+    # print(tags)
+    # print( [(tag.tag_id, tag.decision_margin, tag.hamming) for tag in tags])
     # print(tag)
 
     if debug:
@@ -94,8 +98,8 @@ class RgbdOdometryNode(Node):
       Config.width, Config.height,
       Config.fx, Config.fy, Config.cx, Config.cy)
     option = cph.odometry.OdometryOption()
-    option.min_depth = 0.30
-    option.max_depth = 4
+    option.min_depth = 0.40
+    option.max_depth = 15
 
     # if not self.isMoving:
     #     print(timestamp - self.timestampWhenStoppedMoving)
@@ -149,42 +153,14 @@ class LocalizationNode(Node):
   
   def publishCurrentPose(self, timestamp):
     # print(self.currentPose[:3, 3])
-    self.fusePosePublisher.publish(timestamp, self.currentPose)
-
-class PosePlotterNode(Node):
-  def __init__(self):
-    super().__init__("PosePlotterNode")
-    self.poseSub = self.create_subscriber(Topics.fusedPose, self.pose_cb)
-    self.first_time = True
-  
-  def pose_cb(self, timestamp, msg):
-    import matplotlib.pyplot as plt
-    import matplotlib.animation as animation
-    
-    if self.first_time:
-      self.fig = plt.figure(figsize=(
-        (Map.X_limits[1]-Map.X_limits[0])*5,
-        (Map.Y_limits[1]-Map.Y_limits[0])*5))
-      self.ax = self.fig.add_subplot(1,1,1)
-      plt.ion()
-      plt.show()
-      self.first_time = False
-    
-    position = msg[:2, 3]
-    direction = msg[:2, 0] * 0.2
-    self.ax.clear()
-    self.ax.arrow(position[0], position[1], direction[0], direction[1], width=0.01)
-    self.ax.set_xlim(Map.X_limits)
-    self.ax.set_ylim(Map.Y_limits)
-    self.fig.canvas.draw()
-    self.fig.canvas.flush_events()
+    self.fusePosePublisher.publish(timestamp, (self.lastAtPoseTimeStamp, self.currentPose))
 
 def generateLocalizationNodes(withGraph = False):
   RgbdOdometryNode()
   ATLocalizerNode()
   LocalizationNode()
   if withGraph:
-    PosePlotterNode()
+    PlotterNode()
 
 def test_at_localizerNode():
   from middleware import start_subscribers
@@ -221,7 +197,7 @@ def test_localization_node():
   manualControl = ManualControl()
   generateLocalizationNodes()
   sensorReader = SensorPublisherNode()
-  posePlotter = PosePlotterNode()
+  posePlotter = PlotterNode()
   start_subscribers()
 
   robot = Config.getRobot()
