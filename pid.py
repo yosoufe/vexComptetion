@@ -48,16 +48,6 @@ class PID:
       return 0
     return self.integral + input * self.ki
 
-class DoublePid:
-  def __init__(self, kp, ki, errorLimit) -> None:
-    self.pController = PID(kp, 0,0,0)
-    self.piController = PID(kp, ki, 0,0,0)
-    self.errorLimit = errorLimit
-  
-  def calculate(self, error):
-    if abs(np.linalg.norm(error)) > self.errorLimit:
-      pass TODO
-
 
 def test_scalar():
   pid = PID(10, 0.2, 1, [-5, 8])

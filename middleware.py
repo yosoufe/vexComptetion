@@ -89,6 +89,8 @@ class Node:
     tsts = [que._reader for que in self._sub_queues]
     mmmm = {que._reader: que for que in self._sub_queues}
     while True:
+      # this line only works in Linux.
+      # We need a workaround for windows
       conncections, _, _ = select.select(tsts, [], [])
       for connection in conncections:
         queu = mmmm[connection] 

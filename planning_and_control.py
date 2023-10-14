@@ -215,9 +215,8 @@ class GlobalGoToMission(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
       super().__init__(pAndC, initTimestamp)
       self.mainMission = mainMission
-      self.kp = 30
-      self.ki = 5
-      self.integralPosition = np.zeros(shape=(2,), dtype=float)
+      self.pController = PID(kp=30, ki=0, kd=0)
+      self.piController = PID(kp=30, ki=5, kd=0)
     
     def tick(self, timestamp) -> Mission:
       self.pAndC.actuation.reset()
@@ -229,71 +228,133 @@ class GlobalGoToMission(Mission):
 
       # target reached
       if np.linalg.norm(errorPosition2D) < 0.1:
+        self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
         return GlobalGoToMission.SecondPhaseRotation(self.pAndC, self.mainMission, timestamp)
       
       newTarget, isClose = calculateTarget_LookAhead(robotPosition2d, targetPosition, Constants.LOOK_AHEAD_DISTANCE)
       self.pAndC.targetPosePub.publish(timestamp, newTarget)
       self.pAndC.globalTargetPub.publish(timestamp, targetPosition)
       self.pAndC.log(f"GlobalGoToMission, FirstPhase: isClose {isClose}")
+      
+      # acceleration in x,y,z orientation
       u_control = np.ones((3,1), dtype=float)
       
-      u_control[:2, 0] = self.kp * errorPosition2D
       if isClose:
-        self.integralPosition = self.integralPosition + errorPosition2D
-        integratTerms = self.ki * self.integralPosition
-        print("integratTerms", integratTerms)
-        u_control[:2, 0] = u_control[:2, 0] + integratTerms
+        u_control[:2, 0] = self.piController.calculate(errorPosition2D)
+      else:
+        u_control[:2, 0] = self.pController.calculate(errorPosition2D)
 
+      # acceleration in robot frame (orientation only matters)
       u_control = (np.transpose(robotPose[:3,:3]) @ u_control).squeeze()
+      
       forwardCommand = u_control[0]
       spinCommand = max(min(u_control[1], Constants.ExploreRotation), -1 * Constants.ExploreRotation)
 
-      self.pAndC.actuation.reset()
       self.pAndC.actuation.spinCounterClockWise(spinCommand)
       self.pAndC.actuation.goForward(forwardCommand)
       self.pAndC.log(f"motor commands: {forwardCommand}, {spinCommand}")
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return self
     
-    
-    def chooseTargetPosition(self):
-      targetPositio = np.array([-0.15,-1.25])
-      return targetPositio
+    def chooseTargetPositionPhase1(self):
+      globalTargetPosition, targetOrientation = self.mainMission.chooseTargetPose()
+      alpha = 0.3 # should be larger than Config.DISTNACE_OFFSET_X
+      phase1TargetPosition = globalTargetPosition - alpha * targetOrientation[:, 0]
+      return phase1TargetPosition
 
   class SecondPhaseRotation(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
       super().__init__(pAndC, initTimestamp)
       self.mainMission = mainMission
+      self.piController = PID(kp=30, ki=5, kd=0,
+                              output_limit=np.array(
+                                  [-Constants.ExploreRotation, Constants.ExploreRotation]
+                              ))
     
     def tick(self, timestamp):
       self.pAndC.actuation.reset()
 
       robotPose = self.pAndC.latestRobotPose.copy()
-      robotOri = robotPose[:2, 0]
+      headingErrorRad = self.calculateHeadingErrorAngleRad(robotPose)
+
+      if abs(headingErrorRad) < np.deg2rad(5):
+        self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+        return GlobalGoToMission.ThirdPhasePosition(self.pAndC, self.mainMission, timestamp)
+
+      u_control = np.ones((3,1), dtype=float)
+      u_control[:2, 0] = self.piController.calculate(headingErrorRad)
       
+      # acceleration in robot frame (orientation only matters)
+      u_control = (np.transpose(robotPose[:3,:3]) @ u_control).squeeze()
+      
+      # only rotate. Ignore the position command
+      spinCommand = max(min(u_control[1], Constants.ExploreRotation), -1 * Constants.ExploreRotation)
+      self.pAndC.actuation.spinCounterClockWise(spinCommand)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-      return GlobalGoToMission.ThirdPhasePosition(self.pAndC, self.mainMission, timestamp)
+      return self
+
+    def calculateHeadingErrorAngleRad(self, robotPose):
+      targetHeadingVector = self.chooseTargetHeadingVector()
+      # headingErrorVector = targetHeadingVector - robotPose[:2, 0]
+      a = targetHeadingVector
+      b = robotPose[:2, 0]
+      cosTh1 = np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b))
+      sinTh1 = np.cross(a,b)/(np.linalg.norm(a)*np.linalg.norm(b))
+      return np.arctan2(sinTh1,cosTh1)
+
+      
+    def chooseTargetHeadingVector(self):
+      _, targetOrientation = self.mainMission.chooseTargetPose()
+      return targetOrientation[:2, 0]
   
   class ThirdPhasePosition(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
       super().__init__(pAndC, initTimestamp)
       self.mainMission = mainMission
+      self.pController = PID(kp=30, ki=0, kd=0)
+      self.piController = PID(kp=30, ki=5, kd=0)
     
-    def tick(self, timestamp):
+    def tick(self, timestamp) -> Mission:
       self.pAndC.actuation.reset()
+
+      robotPose = self.pAndC.latestRobotPose.copy()
+      robotPosition2d = robotPose[:2, 3]
+      targetPosition, _ = self.mainMission.chooseTargetPose()
+      errorPosition2D = targetPosition - robotPosition2d
+
+      # target reached
+      if np.linalg.norm(errorPosition2D) < 0.05:
+        self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+        return None
       
+      newTarget, isClose = calculateTarget_LookAhead(robotPosition2d, targetPosition, Constants.LOOK_AHEAD_DISTANCE)
+      self.pAndC.targetPosePub.publish(timestamp, newTarget)
+      self.pAndC.globalTargetPub.publish(timestamp, targetPosition)
+      self.pAndC.log(f"GlobalGoToMission, ThirdPhasePosition: isClose {isClose}")
+      
+      # acceleration in x,y,z orientation
+      u_control = np.ones((3,1), dtype=float)
+      
+      if isClose:
+        u_control[:2, 0] = self.piController.calculate(errorPosition2D)
+      else:
+        u_control[:2, 0] = self.pController.calculate(errorPosition2D)
+
+      # acceleration in robot frame (orientation only matters)
+      u_control = (np.transpose(robotPose[:3,:3]) @ u_control).squeeze()
+      
+      forwardCommand = u_control[0]
+      spinCommand = max(min(u_control[1], Constants.ExploreRotation), -1 * Constants.ExploreRotation)
+
+      self.pAndC.actuation.spinCounterClockWise(spinCommand)
+      self.pAndC.actuation.goForward(forwardCommand)
+      self.pAndC.log(f"motor commands: {forwardCommand}, {spinCommand}")
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-      return None
+      return self
       
 
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
-    self.positionKp = 30
-    self.orientationKp = 5
-    self.positionKi = 0.5
-    self.orientationKi = 0.05
-    self.integralPosition = np.zeros(shape=(2,), dtype=float)
-    self.integralOrientation = np.zeros(shape=(2,), dtype=float)
     self.mission = None
   
   def tick(self, timestamp):
@@ -301,7 +362,9 @@ class GlobalGoToMission(Mission):
     if self.mission is None:
       self.mission = GlobalGoToMission.FirstPhasePosition(self.pAndC, self, timestamp)
     
+    self.pAndC.log(f"Current Mission: GlobalGoToMission.{type(self.mission).__name__}")
     self.mission = self.mission.tick()
+    
     if self.mission == None:
       return OpenClawMission(self.pAndC, timestamp)
     else:
@@ -310,24 +373,21 @@ class GlobalGoToMission(Mission):
 
     # self.pAndC.targetPosePub.publish(timestamp, targetPosition)
     #- Config.zero_offset
-    errorPosition2D = targetPosition - robotPosition2d
-    if self.targetReached(errorPosition2D, timestamp):
-      pass
-      
-    
+    # errorPosition2D = targetPosition - robotPosition2d
+    # if self.targetReached(errorPosition2D, timestamp):
+    #   pass
 
-    
-    return self
+    # return self
   
-  def tagetReached(self, errorPosition2D, timestamp):
-    if np.linalg.norm(errorPosition2D) < 0.1:
-      # print("robotPose", robotPose)
-      print("errorPosition2D:", errorPosition2D)
-      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-      self.pAndC.log("LocalGoToMission: Target reached!")
-      return True
-    
-    return False
+  def chooseTargetPose(self):
+    targetPosition = np.array([0.15, -1.25], dtype=float)
+    targetXaxis = np.array([0, -1], dtype=float)
+    targetYaxis = np.array([-targetXaxis[1], targetXaxis[0]],dtype=float)
+    targetXaxis = targetXaxis / np.linalg.norm(targetXaxis)
+    targetRotation = np.zeros((2,2), dtype=float)
+    targetRotation[:, 0] = targetXaxis
+    targetRotation[:, 1] = targetYaxis
+    return targetPosition, targetRotation
 
 class OpenClawMission(TimedMission):
   def __init__(self, pAndC, initTimestamp):
