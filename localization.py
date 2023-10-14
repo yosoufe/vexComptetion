@@ -32,7 +32,7 @@ class ATLocalizerNode(Node):
     
     tags = [tag for tag in tags if tag.decision_margin > 260 and
             tag.tag_id in Map.tag_ids
-            and tag.pose_err < 1e-7]
+            and abs(tag.pose_err) < 1e-7]
     # print(tags)
     # print( [(tag.tag_id, tag.decision_margin, tag.hamming) for tag in tags])
     # print(tag)

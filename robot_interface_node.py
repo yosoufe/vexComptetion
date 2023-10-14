@@ -16,7 +16,7 @@ class Actuation:
     self.rightMotor = 0
     self.leftMotor = 0
     self.clawMotor = 0
-    self.armMotor = 10
+    self.armMotor = 12
 
   def goForward(self, command):
     self.rightMotor += command
@@ -49,8 +49,8 @@ class ManualControl:
   
   def update(self, robot):
     self.actuation.reset()
-    self.actuation.goForward((robot.keys["w"] - robot.keys["s"])* 30)
-    self.actuation.spinCounterClockWise((robot.keys["a"] - robot.keys["d"])*25)
+    self.actuation.goForward((robot.keys["w"] - robot.keys["s"])* 40)
+    self.actuation.spinCounterClockWise((robot.keys["a"] - robot.keys["d"])*35)
     arm = robot.keys["r"] - robot.keys["f"]
     if arm == 0:
       self.actuation.armCommand(10)

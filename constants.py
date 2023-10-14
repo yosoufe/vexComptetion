@@ -3,8 +3,8 @@ import numpy as np
 
 
 class Config:
-  # ip = "192.168.50.206" # in practice sessions
-  ip = "192.168.68.68"  # at home
+  ip = "192.168.50.206" # in practice sessions
+  # ip = "192.168.68.68"  # at home
   fx = 460.92495728   # FOV(x) -> depth2xyz -> focal length (x)
   fy = 460.85058594   # FOV(y) -> depth2xyz -> focal length (y)
   cx = 315.10949707   # 640 (width) 320
@@ -43,6 +43,23 @@ class Config:
     if Config._robot2CamT is None:
       Config._robot2CamT = np.linalg.inv(Config.cam2RobotT())
     return Config._robot2CamT
+  
+  DISTNACE_OFFSET_X = 0.15
+  DISTNACE_OFFSET_Y = 0.0
+
+  @staticmethod
+  def R2toRT():
+    r2toR = np.eye(4,dtype= float)
+    r2toR[0, 3] = -Config.DISTNACE_OFFSET_X
+    r2toR[1, 3] = -Config.DISTNACE_OFFSET_Y
+    return r2toR
+  
+  @staticmethod
+  def RtoR2T():
+    rtoR2 = np.eye(4,dtype= float)
+    rtoR2[0, 3] = Config.DISTNACE_OFFSET_X
+    rtoR2[1, 3] = Config.DISTNACE_OFFSET_Y
+    return rtoR2
 
   zero_offset = np.array([-0.08315515, 0.04375288])
 
@@ -134,7 +151,7 @@ class _HomeMap:
 # Map at competition
 
 
-class _CompetitionMap:
+class _CompetitionMapOld:
   tag_size = 3 * 0.0254  # m
   # tag_size = 2.735 * 0.0254 # m
   tag_ids = set(list(range(1, 9)))
@@ -193,8 +210,55 @@ class _CompetitionMap:
     return transform
 
 
-# Map = _CompetitionMap
-Map = _HomeMap
+class _CompetitionMap:
+  tag_size = 3 * 0.0254  # m
+  # tag_size = 2.735 * 0.0254 # m
+  tag_ids = set(list(range(1, 9)))
+  # in _landmarks, positions are in inches
+  # they are converted to meters
+  # in the function below
+  HEADING_EAST_ROT  = np.array([[0,  0, -1],
+                                [1,  0,  0],
+                                [0, -1,  0]], dtype=float)
+  HEADING_SOUTH_ROT = np.array([[1,  0,  0],
+                                [0,  0,  1],
+                                [0, -1,  0]], dtype=float)
+  HEADING_WEST_ROT  = np.array([[0,  0,  1],
+                                [-1, 0,  0],
+                                [0, -1,  0]], dtype=float)
+  HEADING_NORTH_ROT = np.array([[-1, 0,  0],
+                                [0,  0, -1],
+                                [0, -1,  0]], dtype=float)
+  _landmarks = {
+      1: (np.array([-72, 12], dtype=float),HEADING_EAST_ROT),
+      2: (np.array([-72, 36], dtype=float),HEADING_EAST_ROT),
+      3: (np.array([-72, 60], dtype=float),HEADING_EAST_ROT),
+      4: (np.array([-60, 72], dtype=float),HEADING_SOUTH_ROT),
+      5: (np.array([-36, 72], dtype=float),HEADING_SOUTH_ROT),
+      6: (np.array([-12, 72], dtype=float),HEADING_SOUTH_ROT)
+  }
+
+  X_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
+  Y_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
+  GRID_MAP = None
+  GRID_SIZE_METERS = 0.025
+
+  @staticmethod
+  def getLandmark(id):
+    """ Transformation from  april tag frame to map frame
+    """
+    position, rotation = _CompetitionMap._landmarks[id]
+    transform = np.identity(4, dtype=float)
+    transform[:3,:3] = rotation
+    # convert position to meters
+    transform[:2,3] = position * 0.0254
+    # z component of the center
+    transform[2, 3] = 10 * 0.0254
+
+    return transform
+
+Map = _CompetitionMap
+# Map = _HomeMap
 
 def getGridMap():
   if Map.GRID_MAP is None:
