@@ -71,7 +71,14 @@ def test_vector():
   print(pid.calculate(np.array(([1,2]),dtype=float)))
   print(pid.calculate(np.array(([0.5,1.5]),dtype=float)))
 
+def test_vector_with_vector_constants():
+  pid = PID(np.array([2,3],dtype=float), 0, 0)
+  pid.reset()
+
+  print(pid.calculate(np.array(([1,2]),dtype=float)))
+  print(pid.calculate(np.array(([-1,-3]),dtype=float)))
 
 if __name__ == "__main__":
-  test_scalar()
-  test_vector()
+  # test_scalar()
+  # test_vector()
+  test_vector_with_vector_constants()
