@@ -9,7 +9,7 @@ class PID:
     self.reset()
 
   def reset(self):
-    self.integral = 0
+    self.integral = None
     self.prevInput = None
 
   def calculate(self, input):
@@ -17,11 +17,13 @@ class PID:
       input = np.array((input,), dtype=float)
     proposedOutput = self._p_term(input) + self._i_term(input) + self._d_term(input)
     
+    
     if not self.output_limit is None:
       # ignore the i_term. It is saturated.
       saturated_dimensions = np.logical_or(proposedOutput > self.output_limit[1], proposedOutput < self.output_limit[0])
+      normal_dimensions = np.logical_not(saturated_dimensions)
       proposedOutput[saturated_dimensions] = self._p_term(input) + self._d_term(input)
-      self.integral = self._i_term(input)[np.logical_not(saturated_dimensions)]
+      self.integral[normal_dimensions] = self._i_term(input)[normal_dimensions]
       return proposedOutput.squeeze()
     else:
       self.integral = self._i_term(input)
@@ -44,8 +46,10 @@ class PID:
     return cmd
 
   def _i_term(self, input):
+    if self.integral is None:
+      self.integral = np.zeros_like(input)
     if self.ki == 0:
-      return 0
+      return np.zeros_like(input)
     return self.integral + input * self.ki
 
 
