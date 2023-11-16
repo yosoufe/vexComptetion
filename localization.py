@@ -29,10 +29,13 @@ class ATLocalizerNode(Node):
       estimate_tag_pose = True,
       camera_params = Config.camera_params,
       tag_size = Map.tag_size)
-    
-    tags = [tag for tag in tags if tag.decision_margin > 260 and
+
+    # tags = [tag for tag in tags if tag.decision_margin > 260 and
+    #         tag.tag_id in Map.tag_ids
+    #         and abs(tag.pose_err) < 1e-7]
+    tags = [tag for tag in tags if tag.decision_margin > 200 and
             tag.tag_id in Map.tag_ids
-            and abs(tag.pose_err) < 1e-7]
+            and abs(tag.pose_err) < 8e-6]
     # print(tags)
     # print( [(tag.tag_id, tag.decision_margin, tag.hamming) for tag in tags])
     # print(tag)

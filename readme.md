@@ -139,3 +139,27 @@ array([[107.75917427],
 ```bash
 jupyter notebook --allow-root --no-browser
 ```
+
+
+
+latest error:
+
+```
+Current Mission: GlobalGoToMission.ThirdPhasePosition
+Process Process-6:
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/opt/conda/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/yousofe/vex/vexComptetion/middleware.py", line 102, in _subscription_run
+    subscriber.callback(timestamp, msg)
+  File "/home/yousofe/vex/vexComptetion/planning_and_control.py", line 502, in tick
+    nextMission = self.currentMission.tick(timestamp)
+  File "/home/yousofe/vex/vexComptetion/planning_and_control.py", line 373, in tick
+    self.mission = self.mission.tick(timestamp)
+  File "/home/yousofe/vex/vexComptetion/planning_and_control.py", line 348, in tick
+    u_control, newTarget = self.controller.calculate(robotPose, targetPosition2D)
+TypeError: LocalController.calculate() missing 1 required positional argument: 'targetPosition2D'
+
+```

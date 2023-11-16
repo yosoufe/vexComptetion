@@ -31,7 +31,8 @@ def calculateTarget_LookAhead(currentPosition, destination, lookAheadDistance = 
   distanceToTarget = np.linalg.norm(destination - currentPosition)
   lookAheadDistance = min(lookAheadDistance, distanceToTarget)
   isClose = abs(distanceToTarget - lookAheadDistance) < 0.01
-  return currentPosition + (destination - currentPosition) / distanceToTarget * lookAheadDistance, isClose
+  res = currentPosition + (destination - currentPosition) / distanceToTarget * lookAheadDistance
+  return np.squeeze(res), isClose
 
 
 def calculateLinearAndRotationalError(currentPose, targetPosition):

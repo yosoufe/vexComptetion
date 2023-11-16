@@ -34,7 +34,7 @@ class PID:
     return self.kp * input
 
   def _d_term(self, input):
-    if self.kd == 0:
+    if np.linalg.norm(self.kd) == 0:
       return 0
 
     if self.prevInput is None:
@@ -48,7 +48,7 @@ class PID:
   def _i_term(self, input):
     if self.integral is None:
       self.integral = np.zeros_like(input)
-    if self.ki == 0:
+    if np.linalg.norm(self.ki) == 0:
       return np.zeros_like(input)
     return self.integral + input * self.ki
 

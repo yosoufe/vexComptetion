@@ -151,69 +151,10 @@ class _HomeMap:
 # Map at competition
 
 
-class _CompetitionMapOld:
+class _CompetitionMapNorth:
   tag_size = 3 * 0.0254  # m
   # tag_size = 2.735 * 0.0254 # m
-  tag_ids = set(list(range(1, 9)))
-  # in _landmarks, positions are in inches
-  # they are converted to meters
-  # in the function below
-  _landmarks = {
-      1: np.array([[0, 0, -1, -72],
-                   [1, 0, 0, 24],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float),
-      2: np.array([[1, 0, 0, -24],
-                   [0, 0, 1, 72],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float),
-      3: np.array([[1, 0, 0, 24],
-                   [0, 0, 1, 72],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float),
-      4: np.array([[0, 0, 1, 72],
-                   [-1, 0, 0, 24],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float),
-      5: np.array([[0, 0, 1, 72],
-                   [-1, 0, 0, -24],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float),
-      6: np.array([[-1, 0, 0, 24],
-                   [0, 0, -1, -72],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float),
-      7: np.array([[-1, 0, 0, -24.],
-                   [0, 0, -1, -72.],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float),
-      8: np.array([[0, 0, -1, -72],
-                   [1, 0, 0, -24],
-                   [0, -1, 0, 0],
-                   [0, 0, 0, 1]], dtype=float)
-  }
-
-  X_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
-  Y_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
-  GRID_MAP = None
-  GRID_SIZE_METERS = 0.025
-
-  @staticmethod
-  def getLandmark(id):
-    """ Transformation from  april tag frame to map frame
-    """
-    transform = _CompetitionMap._landmarks[id].copy()
-    # convert to meters
-    transform[:2, 3] = transform[:2, 3] * 0.0254
-    # z component of the center
-    transform[2, 3] = 10 * 0.0254
-    return transform
-
-
-class _CompetitionMap:
-  tag_size = 3 * 0.0254  # m
-  # tag_size = 2.735 * 0.0254 # m
-  tag_ids = set(list(range(1, 9)))
+  tag_ids = set(list(range(12, 30)))
   # in _landmarks, positions are in inches
   # they are converted to meters
   # in the function below
@@ -230,16 +171,31 @@ class _CompetitionMap:
                                 [0,  0, -1],
                                 [0, -1,  0]], dtype=float)
   _landmarks = {
-      1: (np.array([-72, 12], dtype=float),HEADING_EAST_ROT),
-      2: (np.array([-72, 36], dtype=float),HEADING_EAST_ROT),
-      3: (np.array([-72, 60], dtype=float),HEADING_EAST_ROT),
-      4: (np.array([-60, 72], dtype=float),HEADING_SOUTH_ROT),
-      5: (np.array([-36, 72], dtype=float),HEADING_SOUTH_ROT),
-      6: (np.array([-12, 72], dtype=float),HEADING_SOUTH_ROT)
+      29: (np.array([-72, 12], dtype=float),HEADING_EAST_ROT),
+      28: (np.array([-72, 36], dtype=float),HEADING_EAST_ROT),
+      27: (np.array([-72, 60], dtype=float),HEADING_EAST_ROT),
+
+      26: (np.array([-60, 72], dtype=float),HEADING_SOUTH_ROT),
+      25: (np.array([-36, 72], dtype=float),HEADING_SOUTH_ROT),
+      24: (np.array([-12, 72], dtype=float),HEADING_SOUTH_ROT),
+      23: (np.array([ 12, 72], dtype=float),HEADING_SOUTH_ROT),
+      22: (np.array([ 36, 72], dtype=float),HEADING_SOUTH_ROT),
+      21: (np.array([ 60, 72], dtype=float),HEADING_SOUTH_ROT),
+
+      20: (np.array([ 72, 60], dtype=float),HEADING_WEST_ROT),
+      19: (np.array([ 72, 36], dtype=float),HEADING_WEST_ROT),
+      18: (np.array([ 72, 12], dtype=float),HEADING_WEST_ROT),
+
+      17: (np.array([ 60,  0], dtype=float),HEADING_NORTH_ROT),
+      16: (np.array([ 36,  0], dtype=float),HEADING_NORTH_ROT),
+      15: (np.array([ 12,  0], dtype=float),HEADING_NORTH_ROT),
+      14: (np.array([-12,  0], dtype=float),HEADING_NORTH_ROT),
+      13: (np.array([-36,  0], dtype=float),HEADING_NORTH_ROT),
+      12: (np.array([-60,  0], dtype=float),HEADING_NORTH_ROT),
   }
 
   X_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
-  Y_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
+  Y_limits = np.array([  0 * 0.0254, 72 * 0.0254], dtype= float)
   GRID_MAP = None
   GRID_SIZE_METERS = 0.025
 
@@ -247,7 +203,7 @@ class _CompetitionMap:
   def getLandmark(id):
     """ Transformation from  april tag frame to map frame
     """
-    position, rotation = _CompetitionMap._landmarks[id]
+    position, rotation = _CompetitionMapNorth._landmarks[id]
     transform = np.identity(4, dtype=float)
     transform[:3,:3] = rotation
     # convert position to meters
@@ -257,7 +213,69 @@ class _CompetitionMap:
 
     return transform
 
-Map = _CompetitionMap
+class _CompetitionMapSouth:
+  tag_size = 3 * 0.0254  # m
+  # tag_size = 2.735 * 0.0254 # m
+  tag_ids = set(list(range(0, 18)))
+  # in _landmarks, positions are in inches
+  # they are converted to meters
+  # in the function below
+  HEADING_EAST_ROT  = np.array([[0,  0, -1],
+                                [1,  0,  0],
+                                [0, -1,  0]], dtype=float)
+  HEADING_SOUTH_ROT = np.array([[1,  0,  0],
+                                [0,  0,  1],
+                                [0, -1,  0]], dtype=float)
+  HEADING_WEST_ROT  = np.array([[0,  0,  1],
+                                [-1, 0,  0],
+                                [0, -1,  0]], dtype=float)
+  HEADING_NORTH_ROT = np.array([[-1, 0,  0],
+                                [0,  0, -1],
+                                [0, -1,  0]], dtype=float)
+  _landmarks = {
+      11: (np.array([-72,-12], dtype=float),HEADING_EAST_ROT),
+      10: (np.array([-72,-36], dtype=float),HEADING_EAST_ROT),
+      9:  (np.array([-72,-60], dtype=float),HEADING_EAST_ROT),
+
+      8:  (np.array([-60,-72], dtype=float),HEADING_NORTH_ROT),
+      7:  (np.array([-36,-72], dtype=float),HEADING_NORTH_ROT),
+      6:  (np.array([-12,-72], dtype=float),HEADING_NORTH_ROT),
+      5:  (np.array([ 12,-72], dtype=float),HEADING_NORTH_ROT),
+      4:  (np.array([ 36,-72], dtype=float),HEADING_NORTH_ROT),
+      3:  (np.array([ 60,-72], dtype=float),HEADING_NORTH_ROT),
+
+      2:  (np.array([ 72,-60], dtype=float),HEADING_WEST_ROT),
+      1:  (np.array([ 72,-36], dtype=float),HEADING_WEST_ROT),
+      0:  (np.array([ 72,-12], dtype=float),HEADING_WEST_ROT),
+
+      17: (np.array([ 60,  0], dtype=float),HEADING_SOUTH_ROT),
+      16: (np.array([ 36,  0], dtype=float),HEADING_SOUTH_ROT),
+      15: (np.array([ 12,  0], dtype=float),HEADING_SOUTH_ROT),
+      14: (np.array([-12,  0], dtype=float),HEADING_SOUTH_ROT),
+      13: (np.array([-36,  0], dtype=float),HEADING_SOUTH_ROT),
+      12: (np.array([-60,  0], dtype=float),HEADING_SOUTH_ROT),
+  }
+
+  X_limits = np.array([-72 * 0.0254, 72 * 0.0254], dtype= float)
+  Y_limits = np.array([-72 * 0.0254, 0 * 0.0254], dtype= float)
+  GRID_MAP = None
+  GRID_SIZE_METERS = 0.025
+
+  @staticmethod
+  def getLandmark(id):
+    """ Transformation from  april tag frame to map frame
+    """
+    position, rotation = _CompetitionMapSouth._landmarks[id]
+    transform = np.identity(4, dtype=float)
+    transform[:3,:3] = rotation
+    # convert position to meters
+    transform[:2,3] = position * 0.0254
+    # z component of the center
+    transform[2, 3] = 10 * 0.0254
+
+    return transform
+
+Map = _CompetitionMapSouth
 # Map = _HomeMap
 
 def getGridMap():
