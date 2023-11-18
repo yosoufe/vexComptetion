@@ -1,6 +1,11 @@
 192.168.50.206
 ip at home "192.168.68.68"
 
+# TODO
+- Chose target goal wisely
+- Don't grab balls on the other side
+- start exploration after perception is loaded.
+
 # Clipboard
 
 ```bash

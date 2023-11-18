@@ -128,12 +128,14 @@ class Perception:
     return XYZ
 
 class PerceptionNode(Node):
-  def __init__(self):
+  def __init__(self, enabled = False):
     super().__init__("PerceptionNode")
     self.rgbdSub = self.create_subscriber(Topics.rgbd, self.rgbd_cb)
     self.eabledSub = self.create_subscriber(Topics.switchPerception, self.enabled_cb)
     self.ballPositionPublisher = self.create_publisher(Topics.ballPositions)
-    self.enabled = False
+    self.perceptionReadyPub = self.create_publisher(Topics.perceptionReady)
+    self.isPerceptionReadyPublished = False
+    self.enabled = enabled
     
     self.perception = None
   
@@ -143,6 +145,7 @@ class PerceptionNode(Node):
   def rgbd_cb(self, timestamp, rgbd):
     if self.perception is None:
       self.perception = Perception()
+
     
     if not self.enabled:
       return
@@ -161,6 +164,9 @@ class PerceptionNode(Node):
       
       # print(positionsInRobotFrame[:2, :] * 39.3701, "in inches")
       self.ballPositionPublisher.publish(timestamp, positionsInRobotFrame)
+    
+    if self.isPerceptionReadyPublished == False:
+      self.perceptionReadyPub.publish(timestamp, True)
 
 
 def test_perception_class():
@@ -181,7 +187,7 @@ def test_perception_node():
   from robot_interface_node import ManualControl, SensorPublisherNode
   manualControl = ManualControl()
   sensorReader = SensorPublisherNode()
-  perception = PerceptionNode()
+  perception = PerceptionNode(enabled=True)
   start_subscribers()
   
   robot = Config.getRobot()

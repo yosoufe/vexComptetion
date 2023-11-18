@@ -55,9 +55,9 @@ class ManualControl:
     if arm == 0:
       self.actuation.armCommand(10)
     elif arm == 1:
-      self.actuation.armCommand(42)
+      self.actuation.armCommand(52)
     else:
-      self.actuation.armCommand(-1)
+      self.actuation.armCommand(-20)
 
     self.actuation.clawCommand((robot.keys["e"] - robot.keys["q"])*22)
     self.actuation.update(robot)
@@ -70,15 +70,15 @@ class ManualControlNode(Node):
   
   def publishMotorCommands(self, timestamp):
     self.actuation.reset()
-    self.actuation.goForward((keyboard.is_pressed("w") - keyboard.is_pressed("s"))* 30)
-    self.actuation.spinCounterClockWise((keyboard.is_pressed("a") - keyboard.is_pressed("d"))*25)
+    self.actuation.goForward((keyboard.is_pressed("w") - keyboard.is_pressed("s"))* 60)
+    self.actuation.spinCounterClockWise((keyboard.is_pressed("a") - keyboard.is_pressed("d"))*55)
     arm = keyboard.is_pressed("r") - keyboard.is_pressed("f")
     if arm == 0:
       self.actuation.armCommand(10)
     elif arm == 1:
       self.actuation.armCommand(42)
     else:
-      self.actuation.armCommand(-1)
+      self.actuation.armCommand(-42)
 
     self.actuation.clawCommand((keyboard.is_pressed("q") - keyboard.is_pressed("e"))*42)
     self.commandPublisher.publish(timestamp, self.actuation.generateMotorCmd())

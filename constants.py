@@ -305,6 +305,8 @@ class Topics:
   targetPose = "targetPose" # the target pose
   globalTarget = "globalTarget"
 
+  perceptionReady = "perceptionReady"
+
 if __name__ == "__main__":
   print(getGridIdxForXY(np.array([0,0])))
   print(getGridIdxForXY(np.array([Map.X_limits[0], Map.Y_limits[0]])))

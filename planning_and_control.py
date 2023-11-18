@@ -20,10 +20,10 @@ import numpy as np
 class CompetitionConstant:
   ExploreRotation = 35
   LOCAL_CONTROLLER_FORWARD_KP = 110
-  LOCAL_CONTROLLER_FORWARD_KI = 0.1
-  LOCAL_CONTROLLER_ROTATIONAL_KP = 85
+  LOCAL_CONTROLLER_FORWARD_KI = 0.5
+  LOCAL_CONTROLLER_ROTATIONAL_KP = 100
   LOOK_AHEAD_DISTANCE = 0.5
-  MAX_ROTATION = 50
+  MAX_ROTATION = 120
 
 class HomeConstants:
   ExploreRotation = 20
@@ -31,7 +31,7 @@ class HomeConstants:
   LOCAL_CONTROLLER_FORWARD_KI = 0.3
   LOCAL_CONTROLLER_ROTATIONAL_KP = 30
   LOOK_AHEAD_DISTANCE = 0.5
-  MAX_ROTATION = 50
+  MAX_ROTATION = 100
 
 
 Constants = CompetitionConstant
@@ -75,6 +75,10 @@ class ExploreForTennisBallsMission(Mission):
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
     self.pAndC.enablePerception()
+    if not self.pAndC.isPerceptionReady:
+      self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      return self
+    
     if self.pAndC.latestBallPositionsTimestamp and \
         self.pAndC.latestBallPositionsTimestamp > self.initTimestamp:
 
@@ -121,7 +125,6 @@ class LocalController:
     homTarget = np.ones((4,1), dtype=float)
     homTarget[:2, 0] = targetPosition2D
     localTarget2D = (np.linalg.inv(currentPose) @ homTarget)[:2]
-    print("localTarget2D",np.squeeze(localTarget2D))
     # generate intermediate target
     intermediateTargetLocal, isClose = calculateTarget_LookAhead(np.zeros_like(localTarget2D), localTarget2D, lookAheadDistance = 0.3)
     inter = np.ones((4,1), dtype=float)
@@ -130,14 +133,16 @@ class LocalController:
 
     intermediateTargetLocal = np.squeeze(intermediateTargetLocal)
     intermediateTargetGlobal = np.squeeze(intermediateTargetGlobal)
-    print("intermediateTargetGlobal", intermediateTargetGlobal[:2])
-    print(isClose)
+    # print("localTarget2D",np.squeeze(localTarget2D))
+    print("localTarget2D",np.squeeze(localTarget2D), "intermediateTargetLocal", intermediateTargetLocal[:2], isClose)
+    # print("intermediateTargetGlobal", intermediateTargetGlobal[:2])
+    # print(isClose)
 
       
     if isClose:
       return self.piController.calculate(intermediateTargetLocal), intermediateTargetGlobal[:2]
     else:
-      return self.pController.calculate(intermediateTargetLocal), intermediateTargetLocal[:2]
+      return self.pController.calculate(intermediateTargetLocal), intermediateTargetGlobal[:2]
 
 class LocalGoToMission(Mission):
   def __init__(self, pAndC, initTimestamp):
@@ -178,9 +183,9 @@ class CloseClawMission(TimedMission):
   
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
-    if self.timedLoopContinue(timestamp, duration=1):
+    if self.timedLoopContinue(timestamp, duration=1.5):
       # close arm for 1 second
-      self.pAndC.actuation.clawCommand(32)
+      self.pAndC.actuation.clawCommand(52)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return self
     else:
@@ -193,9 +198,9 @@ class MoveArmUpMission(TimedMission):
   
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
-    if self.timedLoopContinue(timestamp, duration=2.5):
+    if self.timedLoopContinue(timestamp, duration=3):
       # Move arm up for 1
-      self.pAndC.actuation.armCommand(42)
+      self.pAndC.actuation.armCommand(52)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return self
     else:
@@ -257,6 +262,8 @@ class GlobalGoToMission(Mission):
       targetPosition2D = self.chooseTargetPositionPhase1()
       errorPosition2D = targetPosition2D - robotPosition2d
 
+      print("FirstPhasePosition errorDis", np.linalg.norm(errorPosition2D))
+
       # Phase done, target reached
       if np.linalg.norm(errorPosition2D) < 0.1:
         self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
@@ -284,7 +291,7 @@ class GlobalGoToMission(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
       super().__init__(pAndC, initTimestamp)
       self.mainMission = mainMission
-      self.piController = PID(kp=50, ki=10, kd=0,
+      self.piController = PID(kp=65, ki=10, kd=0,
                               output_limit=np.array(
                                   [-Constants.MAX_ROTATION, Constants.MAX_ROTATION]
                               ))
@@ -329,7 +336,7 @@ class GlobalGoToMission(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
       super().__init__(pAndC, initTimestamp)
       self.mainMission = mainMission
-      self.controller = LocalController
+      self.controller = LocalController()
     
     def tick(self, timestamp) -> Mission:
       self.pAndC.actuation.reset()
@@ -351,7 +358,7 @@ class GlobalGoToMission(Mission):
       self.pAndC.log(f"GlobalGoToMission, ThirdPhasePosition: {np.linalg.norm(errorPosition2D)}")
       
       forwardCommand = u_control[0]
-      spinCommand = max(min(u_control[1], Constants.ExploreRotation), -1 * Constants.ExploreRotation)
+      spinCommand = max(min(u_control[1], Constants.MAX_ROTATION), -1 * Constants.MAX_ROTATION)
 
       self.pAndC.actuation.spinCounterClockWise(spinCommand)
       self.pAndC.actuation.goForward(forwardCommand)
@@ -391,7 +398,7 @@ class GlobalGoToMission(Mission):
     # # targetXaxis = np.array([0, -1], dtype=float)
     # targetPosition = np.array([1, 1], dtype=float)
     # targetXaxis = np.array([1, 0], dtype=float)
-    targetPosition = np.array([-36 * 0.0254, 0], dtype=float)
+    targetPosition = np.array([(-36+3) * 0.0254, 2 * 0.0254], dtype=float)
     targetXaxis = np.array([0, 1], dtype=float)
     targetYaxis = np.array([-targetXaxis[1], targetXaxis[0]],dtype=float)
     targetXaxis = targetXaxis / np.linalg.norm(targetXaxis)
@@ -438,7 +445,7 @@ class MoveArmDownMission(TimedMission):
     self.pAndC.actuation.reset()
     if self.timedLoopContinue(timestamp, duration=1.5):
       # Move arm down for 1
-      self.pAndC.actuation.armCommand(-24)
+      self.pAndC.actuation.armCommand(-44)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return self
     else:
@@ -452,6 +459,7 @@ class PlanningAndControlNode(Node):
     self.ballPositionSub = self.create_subscriber(Topics.ballPositions, self.ballPosition_cb)
     self.localizationSub = self.create_subscriber(Topics.fusedPose, self.localization_cb)
     self.sensorsSub = self.create_subscriber(Topics.sensors, self.sensors_cb)
+    self.perceptionReadySub = self.create_subscriber(Topics.perceptionReady, self.perceptionReady_cb)
     self.tickSub = self.create_subscriber(Topics.isMoving, self.tick)
     self.switchPerceptionPub = self.create_publisher(Topics.switchPerception)
     self.targetPosePub = self.create_publisher(Topics.targetPose)
@@ -468,6 +476,10 @@ class PlanningAndControlNode(Node):
     self.sensors = None
     self.latestSensorsTimestamp = None
     self.log = None
+    self.isPerceptionReady = False
+
+  def perceptionReady_cb(self, timestamp, msg):
+    self.isPerceptionReady = msg
   
   def ballPosition_cb(self, timestamp, ballPositions):
     self.latestBallPositionsInRobotFrame = ballPositions
@@ -495,8 +507,9 @@ class PlanningAndControlNode(Node):
     
     # init mission to find an april tag
     if self.currentMission is None:
-      # self.currentMission = ExploreForTennisBallsMission(self, timestamp)
-      self.currentMission = ExploreForLocalizationMission(self, timestamp)
+      self.currentMission = ExploreForTennisBallsMission(self, timestamp)
+      # self.currentMission = ExploreForLocalizationMission(self, timestamp)
+      # self.currentMission = MoveArmUpMission(self, timestamp)
 
     self.log(f"Current Mission: {type(self.currentMission).__name__}")
     nextMission = self.currentMission.tick(timestamp)
@@ -585,7 +598,7 @@ class PlotterNode(Node):
       self.ax.arrow(position[0], position[1], direction[0], direction[1], width=0.01)
     
     # plot target position
-    targetPosition = self.getIfNotExpired(self.targetPose, float('inf'), timestamp)
+    targetPosition = self.getIfNotExpired(self.targetPose, 1.0, timestamp)
     if not targetPosition is None:
       circle1 = plt.Circle((targetPosition[0], targetPosition[1]), 0.02, color="r")
       self.ax.add_patch(circle1)
