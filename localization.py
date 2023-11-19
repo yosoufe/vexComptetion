@@ -8,6 +8,7 @@ from scipy.spatial.transform import Rotation as R
 cph.initialize_allocator(cph.PoolAllocation, 1000000000)
 
 PRINT_DETECTED_TAGS = False
+PRINT_DETECTED_TAGS_POSE = False
 
 class ATLocalizerNode(Node):
   def __init__(self):
@@ -50,8 +51,9 @@ class ATLocalizerNode(Node):
     if debug:
       for tag in tags:
         print("tag:", tag.tag_id, tag.decision_margin, tag.pose_err)
-        # print(repr(tag.pose_R))
-        # print(repr(tag.pose_t))
+        if PRINT_DETECTED_TAGS_POSE:
+          print(repr(tag.pose_R))
+          print(repr(tag.pose_t))
     
     return [tag]
 

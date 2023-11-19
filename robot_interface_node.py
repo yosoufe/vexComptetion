@@ -59,7 +59,7 @@ class ManualControl:
     else:
       self.actuation.armCommand(-20)
 
-    self.actuation.clawCommand((robot.keys["e"] - robot.keys["q"])*22)
+    self.actuation.clawCommand((robot.keys["e"] - robot.keys["q"])*44)
     self.actuation.update(robot)
     
 class ManualControlNode(Node):

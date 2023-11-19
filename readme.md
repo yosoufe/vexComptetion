@@ -2,7 +2,7 @@
 ip at home "192.168.68.68"
 
 # TODO
-- Chose target goal wisely
+- fix The AmIAlready on the otherside for noisy localization
 - Don't grab balls on the other side
 - start exploration after perception is loaded.
 

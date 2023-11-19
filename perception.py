@@ -100,7 +100,7 @@ class Perception:
         cv2.putText(color, str(cls), (x2, y - 5), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 225), 2)
     
     if show_debug:
-      cv2.imshow("single_mask", single_mask)
+      # cv2.imshow("single_mask", single_mask)
       cv2.imshow("color", color)
       cv2.waitKey(1)
     
