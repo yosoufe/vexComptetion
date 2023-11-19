@@ -14,16 +14,17 @@ class Config:
   camera_params = (fx, fy, cx, cy)
 
   # Robot frame in camera frame
-  at_zero_rot = np.array([[0.10036645, -0.11373534, -0.98842847],
-                          [0.9810449,  0.17682528,  0.07926998],
-                          [0.16576335, -0.97764876,  0.1293268]])
-  at_zero_position = np.array([[-0.08517979],
-                               [0.07962572],
-                               [0.30808843]])
+  at_zero_rot = np.array([[0.09302444, -0.10109114, -0.99051857],
+                          [0.98223621,  0.17214917,  0.07467726],
+                          [0.16296774, -0.97987001,  0.11530946]])
+  at_zero_position = np.array([[-0.15297824],
+                               [0.07296117],
+                               [0.32329623]])
+
 
   _cam2RobotT = None
   _robot2CamT = None
-  _CalibrationAT2Robot = np.array([[0, -1, 0, 0],
+  _CalibrationAT2Robot = np.array([[0, -1, 0, 0.01],
                                    [-1, 0, 0, 0],
                                    [0, 0, -1, 0],
                                    [0, 0, 0, 1]], dtype=float)
@@ -34,7 +35,6 @@ class Config:
       AT2Camera = np.eye(4, dtype=float)
       AT2Camera[:3, :3] = Config.at_zero_rot
       AT2Camera[:3, 3] = Config.at_zero_position.squeeze()
-      # print(AT2Camera)
       Config._cam2RobotT = Config._CalibrationAT2Robot @ np.linalg.inv(AT2Camera)
     return Config._cam2RobotT
 
@@ -61,7 +61,7 @@ class Config:
     rtoR2[1, 3] = Config.DISTNACE_OFFSET_Y
     return rtoR2
 
-  zero_offset = np.array([-0.08315515, 0.04375288])
+  zero_offset = np.array([-0.01, 0])
 
   _robot = None
   _robotNode = None
@@ -152,6 +152,7 @@ class _HomeMap:
 
 
 class _CompetitionMapNorth:
+  SIDE = "NORTH"
   tag_size = 3 * 0.0254  # m
   # tag_size = 2.735 * 0.0254 # m
   tag_ids = set(list(range(12, 30)))
@@ -214,6 +215,7 @@ class _CompetitionMapNorth:
     return transform
 
 class _CompetitionMapSouth:
+  SIDE = "SOUTH"
   tag_size = 3 * 0.0254  # m
   # tag_size = 2.735 * 0.0254 # m
   tag_ids = set(list(range(0, 18)))
@@ -276,6 +278,7 @@ class _CompetitionMapSouth:
     return transform
 
 Map = _CompetitionMapSouth
+# Map = _CompetitionMapNorth
 # Map = _HomeMap
 
 def getGridMap():
@@ -306,8 +309,3 @@ class Topics:
   globalTarget = "globalTarget"
 
   perceptionReady = "perceptionReady"
-
-if __name__ == "__main__":
-  print(getGridIdxForXY(np.array([0,0])))
-  print(getGridIdxForXY(np.array([Map.X_limits[0], Map.Y_limits[0]])))
-  # print(np.array([Map.X_limits[0], Map.Y_limits[0]]))

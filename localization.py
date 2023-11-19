@@ -4,7 +4,10 @@ from constants import Config, Topics, Map
 import cv2
 import cupoch as cph
 from planning_and_control import PlotterNode
+from scipy.spatial.transform import Rotation as R
 cph.initialize_allocator(cph.PoolAllocation, 1000000000)
+
+PRINT_DETECTED_TAGS = False
 
 class ATLocalizerNode(Node):
   def __init__(self):
@@ -30,38 +33,33 @@ class ATLocalizerNode(Node):
       camera_params = Config.camera_params,
       tag_size = Map.tag_size)
 
-    # tags = [tag for tag in tags if tag.decision_margin > 260 and
-    #         tag.tag_id in Map.tag_ids
-    #         and abs(tag.pose_err) < 1e-7]
-    tags = [tag for tag in tags if tag.decision_margin > 200 and
+    # print(tags)
+    # for tag in tags:
+    #   print("tag:", tag.tag_id, tag.decision_margin, tag.pose_err)
+    
+    tags = [tag for tag in tags if tag.decision_margin > 100 and
             tag.tag_id in Map.tag_ids
             and abs(tag.pose_err) < 8e-6]
-    # print(tags)
-    # print( [(tag.tag_id, tag.decision_margin, tag.hamming) for tag in tags])
-    # print(tag)
 
     if debug:
       for tag in tags:
-        print(repr(tag.tag_id))
-        print(repr(tag.pose_R))
-        print(repr(tag.pose_t))
-        print(repr(tag))
+        print("tag:", tag.tag_id, tag.decision_margin, tag.pose_err)
+        # print(repr(tag.pose_R))
+        # print(repr(tag.pose_t))
     
     return tags
 
   def localize(self, timestamp, rgbd):
     # just use the first tag in the list
     color, _ = rgbd
-    tags = self.detect(color, debug= False)
+    tags = self.detect(color, debug= PRINT_DETECTED_TAGS)
     if len(tags) == 0:
       return
     tag = tags[0]
-    # print(f"Tag {tag.tag_id} detected!")
     AtToCamera = self.tagToT(tag)
     landMarkToMap = Map.getLandmark(tag.tag_id)
     cameraToAt = np.linalg.inv(AtToCamera)
     robotInMap = landMarkToMap @ cameraToAt @ Config.robot2CamT()
-    # print("robotPoseInMap:\n", robotInMap)
     self.atPosePub.publish(timestamp, robotInMap)
 
   def tagToT(self, tag):
@@ -104,9 +102,6 @@ class RgbdOdometryNode(Node):
     option.min_depth = 0.40
     option.max_depth = 15
 
-    # if not self.isMoving:
-    #     print(timestamp - self.timestampWhenStoppedMoving)
-
     if not self.prev_cph_rgbd is None \
       and (self.isMoving or \
            (not self.isMoving and \
@@ -121,12 +116,14 @@ class RgbdOdometryNode(Node):
       )
 
       if res:
-        # self.cur_trans = self.cur_trans @ odomInCamFrame
-        # print(self.cur_trans[:3,3])
         # odomInCamFrame is T from current cam 2 prev cam
         odomInRobotFrame = Config.cam2RobotT() @ odomInCamFrame @ Config.robot2CamT()
-        # print(odomInRobotFrame[:3, 3])
-        self.odom_publisher.publish(timestamp, odomInRobotFrame)
+        # print("%.10f"%(np.linalg.norm(odomInRobotFrame[:2,3])))
+        euler = R.from_matrix(odomInRobotFrame[:3,:3]).as_euler('zyx', degrees=True)
+        # print(f"localization yaw: {euler[0]:.10f}")
+        if (np.linalg.norm(odomInRobotFrame[:2,3]) < 0.05 and abs(euler[0]) < 10):
+          self.odom_publisher.publish(timestamp, odomInRobotFrame)
+
 
     self.prev_cph_rgbd = cph_rgbd
 
@@ -145,17 +142,15 @@ class LocalizationNode(Node):
     if timestamp < self.lastAtPoseTimeStamp or self.lastAtPoseTimeStamp == 0:
       return
     self.currentPose = self.currentPose @ odom
-    # print("Localization uses RGBD Odom")
     self.publishCurrentPose(timestamp)
 
   def at_pose_cb(self, timestamp, atPose):
     self.lastAtPoseTimeStamp = timestamp
     self.currentPose = atPose
-    # print("Localization use AT Localization")
     self.publishCurrentPose(timestamp)
   
   def publishCurrentPose(self, timestamp):
-    # print(self.currentPose[:3, 3])
+    # print("localizationNode", self.currentPose[:2, 3], self.currentPose[:2, 3] * 39.3701)
     self.fusePosePublisher.publish(timestamp, (self.lastAtPoseTimeStamp, self.currentPose))
 
 def generateLocalizationNodes(withGraph = False):

@@ -6,6 +6,9 @@ ip at home "192.168.68.68"
 - Don't grab balls on the other side
 - start exploration after perception is loaded.
 
+# checklist:
+- check if the arm goes high enough and not more than enough
+
 # Clipboard
 
 ```bash

@@ -25,7 +25,6 @@ class Perception:
       self.preprocess = transforms.Compose([ transforms.ToTensor(), ])
     rotated_image = np.rot90(color)
     input_tensor = self.preprocess(Image.fromarray(rotated_image))
-    # print(input_tensor)
     # input_tensor = input_tensor * 0.9
     input_batch = input_tensor.unsqueeze(0).to('cuda')
     with torch.no_grad():
@@ -38,7 +37,6 @@ class Perception:
     prob_threshold = 0.2
     indeces_found = np.logical_and(output["labels"]==object_index, output["scores"] > prob_threshold)
     masks  = output["masks"][indeces_found]
-    # print(output["labels"], masks)
     single_mask = np.zeros_like(depth, dtype=np.uint8)
     for idx in range(len(masks)):
       rotated_mask = np.rot90(masks[idx], 3, axes=(1,2))
@@ -69,7 +67,6 @@ class Perception:
       self.yolo = YOLO("yolov8x.pt")
     rotated_image = np.rot90(color)
     output = self.yolo(rotated_image, device="cuda", verbose=False, conf=0.15)
-    # print(output)
     result = output[0]
     bboxes = np.array(result.boxes.xyxy.cpu(), dtype="int")
     classes = np.array(result.boxes.cls.cpu(), dtype="int")
@@ -162,7 +159,6 @@ class PerceptionNode(Node):
       positions[:3, :] = tennisBalls
       positionsInRobotFrame = np.sort(Config.cam2RobotT() @ positions, axis = 1)
       
-      # print(positionsInRobotFrame[:2, :] * 39.3701, "in inches")
       self.ballPositionPublisher.publish(timestamp, positionsInRobotFrame)
     
     if self.isPerceptionReadyPublished == False:
