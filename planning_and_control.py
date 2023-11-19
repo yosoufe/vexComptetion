@@ -148,7 +148,7 @@ class LocalController:
 class NewController:
   def __init__(self):
     self.spinPD = PID(kp=60.0, ki=0.0001, kd=0., output_limit=[-50., 50.], withPlot = True) # very good
-    self.spinPID = PID(kp=60.0, ki=1, kd=100., output_limit=[-50., 50.], withPlot = False) # very good
+    self.spinPID = PID(kp=60.0, ki=0.3, kd=100., output_limit=[-50., 50.], withPlot = False) # very good
     # self.spinPID = PID(kp=30.0, ki=1, kd=100., output_limit=[-50., 50.], withPlot = False) # very good
     self.forwardPD = PID(kp=180.0, ki=0.1, kd=0., output_limit=[-80., 80.], withPlot = False)
     self.forwardPID = PID(kp=180.0, ki=1, kd=100., output_limit=[-80., 80.], withPlot = False)
@@ -184,6 +184,9 @@ class NewController:
         self.forwardPID.reset()
         forwardCommand = self.forwardPD.calculate(forwardError)
       # print(f"forwardError: {forwardError:0.4f} forwardCommand: {forwardCommand:0.4f}")
+
+      print(f"headingError: {headingError:0.4f} spinCommand: {spinCommand:0.4f} forwardError: {forwardError:0.4f} forwardCommand: {forwardCommand:0.4f}, isHeadingClose {isHeadingClose}, isForwardClose {isForwardClose}")
+
       
       self.lastCommands = spinCommand, forwardCommand
     else:
@@ -232,7 +235,7 @@ class ControlDebugControlMission(Mission):
 class LocalGoToMission(Mission):
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
-    self.controller = LocalController()
+    self.controller = NewController()
   
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
@@ -245,10 +248,7 @@ class LocalGoToMission(Mission):
     # set the target position
     localTarget = self.pAndC.latestBallPositionsInRobotFrame[:2, 0] # - Config.zero_offset
     
-    
-
     # Mission Done if we reached the target position
-    # if np.linalg.norm(localTarget) < 0.025:
     if np.all(np.absolute(localTarget) < np.array([0.01, 0.03])):
       self.pAndC.log(f"LocalGoToMission: Target reached! localTarget: {localTarget}, distance: {np.linalg.norm(localTarget)}")
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
@@ -259,13 +259,15 @@ class LocalGoToMission(Mission):
     #   self.pAndC.log(f"LocalGoToMission: localTarget: {localTarget}, distance: {np.linalg.norm(localTarget)}")
 
     # run the controller
-    u_control, newTarget = self.controller.calculate(np.identity(4), localTarget)
+    spinCommand, forwardCommand = self.controller.calculate(
+      np.identity(4), localTarget,
+      self.pAndC.latestRobotPoseTimestamp, self.pAndC.isMoving)
 
     # print("LocalGoToMission, newTarget:",newTarget, np.linalg.norm(newTarget))
     # print("LocalGoToMission, u_control:",u_control)
 
-    self.pAndC.actuation.goForward(u_control[0])
-    self.pAndC.actuation.spinCounterClockWise(u_control[1])
+    self.pAndC.actuation.goForward(forwardCommand)
+    self.pAndC.actuation.spinCounterClockWise(spinCommand)
     self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
     return self
 
@@ -291,7 +293,8 @@ class MoveArmUpMission(TimedMission):
   
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
-    if self.timedLoopContinue(timestamp, duration=2.2):
+    # if self.timedLoopContinue(timestamp, duration=2.2):# battery full
+    if self.timedLoopContinue(timestamp, duration=3):
       # Move arm up for 1
       self.pAndC.actuation.armCommand(52)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())

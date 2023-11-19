@@ -157,9 +157,11 @@ class PerceptionNode(Node):
       tennisBalls = np.vstack(ballPositionsInMeters).T # 3 x n_balls
       positions = np.ones((4,n_balls), float)
       positions[:3, :] = tennisBalls
-      positionsInRobotFrame = np.sort(Config.cam2RobotT() @ positions, axis = 1)
-      
-      self.ballPositionPublisher.publish(timestamp, positionsInRobotFrame)
+      positionsInRobotFrame = Config.cam2RobotT() @ positions
+      NotOnWallBalls = positionsInRobotFrame[2,:] < 0.3
+      positionsInRobotFrame = np.sort(positionsInRobotFrame[:,NotOnWallBalls].copy(), axis = 1)
+      if positionsInRobotFrame.size > 0:
+        self.ballPositionPublisher.publish(timestamp, positionsInRobotFrame)
     
     if self.isPerceptionReadyPublished == False:
       self.perceptionReadyPub.publish(timestamp, True)
