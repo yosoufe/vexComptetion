@@ -25,6 +25,7 @@ class ATLocalizerNode(Node):
                                quad_sigma=0.0,
                                refine_edges=1,
                               #  decode_sharpening=0.25,
+                              #  decode_sharpening=0.9,
                                decode_sharpening=1.2,
                                debug=0)
     tags = self.detector.detect(
@@ -40,6 +41,11 @@ class ATLocalizerNode(Node):
     tags = [tag for tag in tags if tag.decision_margin > 100 and
             tag.tag_id in Map.tag_ids
             and abs(tag.pose_err) < 8e-6]
+    if len(tags) == 0:
+      return tags
+    
+    # tag = max(tags, key = lambda t: t.decision_margin)
+    tag = min(tags, key = lambda t: t.pose_err)
 
     if debug:
       for tag in tags:
@@ -47,7 +53,7 @@ class ATLocalizerNode(Node):
         # print(repr(tag.pose_R))
         # print(repr(tag.pose_t))
     
-    return tags
+    return [tag]
 
   def localize(self, timestamp, rgbd):
     # just use the first tag in the list
@@ -121,7 +127,7 @@ class RgbdOdometryNode(Node):
         # print("%.10f"%(np.linalg.norm(odomInRobotFrame[:2,3])))
         euler = R.from_matrix(odomInRobotFrame[:3,:3]).as_euler('zyx', degrees=True)
         # print(f"localization yaw: {euler[0]:.10f}")
-        if (np.linalg.norm(odomInRobotFrame[:2,3]) < 0.05 and abs(euler[0]) < 10):
+        if (np.linalg.norm(odomInRobotFrame[:2,3]) < 0.05 and abs(euler[0]) < 5):
           self.odom_publisher.publish(timestamp, odomInRobotFrame)
 
 

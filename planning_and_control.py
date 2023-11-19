@@ -2,8 +2,9 @@ from middleware import Node
 from constants import Topics, Config, Map
 from abc import ABC, abstractmethod
 from utils import LogOnlyChange, calculateLinearAndRotationalError, calculateTarget_LookAhead
-from pid import PID
+from pid import PID, PlotterForControl
 import numpy as np
+
 
 # current Mission orders
 # ExploreForTennisBallsMission
@@ -144,6 +145,90 @@ class LocalController:
     else:
       return self.pController.calculate(intermediateTargetLocal), intermediateTargetGlobal[:2]
 
+class NewController:
+  def __init__(self):
+    self.spinPD = PID(kp=60.0, ki=0.0001, kd=0., output_limit=[-50., 50.], withPlot = True) # very good
+    self.spinPID = PID(kp=60.0, ki=1, kd=100., output_limit=[-50., 50.], withPlot = False) # very good
+    # self.spinPID = PID(kp=30.0, ki=1, kd=100., output_limit=[-50., 50.], withPlot = False) # very good
+    self.forwardPD = PID(kp=180.0, ki=0.1, kd=0., output_limit=[-80., 80.], withPlot = False)
+    self.forwardPID = PID(kp=180.0, ki=1, kd=100., output_limit=[-80., 80.], withPlot = False)
+    self.lastLocalizationTime = 0
+    self.lastCommands = None
+
+  def calculate(self, currentPose, targetPosition2D, latestLocalizationTimestamp, isMoving):
+    if latestLocalizationTimestamp != self.lastLocalizationTime or isMoving == False:
+      localTarget2D = self.targetInLocalFrame(currentPose, targetPosition2D)
+      # Spin/Rotation PID
+      headingError = self.calculateHeadingErrorAngleRad(localTarget2D)
+      # if (abs(headingError) > np.deg2rad(3)):
+      headingErrorLimit = np.deg2rad(30)
+      isHeadingClose = abs(headingError) < headingErrorLimit
+      headingError = max(min(headingError, headingErrorLimit), -headingErrorLimit)
+      if isHeadingClose:
+        spinCommand = self.spinPID.calculate(headingError)
+      else:
+        self.spinPID.reset()
+        spinCommand = self.spinPD.calculate(headingError)
+      # forwardCommand = 0
+      # print(f"headingError: {headingError:0.4f} spinCommand: {spinCommand:0.4f}")
+      # else:
+      # spinCommand = 0
+      # Forward PID
+      forwardError = localTarget2D[0,0]
+      forwardErrorLimit = 0.3
+      isForwardClose = abs(forwardError) < forwardErrorLimit
+      forwardError = max(min(forwardError, forwardErrorLimit), -forwardErrorLimit)
+      if isForwardClose:
+        forwardCommand = self.forwardPID.calculate(forwardError)
+      else:
+        self.forwardPID.reset()
+        forwardCommand = self.forwardPD.calculate(forwardError)
+      # print(f"forwardError: {forwardError:0.4f} forwardCommand: {forwardCommand:0.4f}")
+      
+      self.lastCommands = spinCommand, forwardCommand
+    else:
+      spinCommand, forwardCommand = self.lastCommands
+    
+    
+
+    return spinCommand, forwardCommand
+
+  def calculateHeadingErrorAngleRad(self, localTarget2D):
+    return np.arctan2(localTarget2D[1],localTarget2D[0])[0]
+  
+  def targetInLocalFrame(self, currentPose, targetPosition2D):
+    homTarget = np.ones((4,1), dtype=float)
+    homTarget[:2, 0] = targetPosition2D
+    return (np.linalg.inv(currentPose) @ homTarget)[:2]
+
+class ControlDebugControlMission(Mission):
+  def __init__(self, pAndC, initTimestamp):
+    super().__init__(pAndC, initTimestamp)
+    self.controller = NewController()
+    self.target = None
+  
+  def tick(self, timestamp):
+    self.pAndC.actuation.reset()
+    if self.target is None:
+      # calculate target only once
+      self.target = self.getTarget()
+    
+    spinCommand, forwardCommand = self.controller.calculate(
+      self.pAndC.latestRobotPose, self.target, 
+      self.pAndC.latestRobotPoseTimestamp, self.pAndC.isMoving)
+    print("diff:", self.target - self.pAndC.latestRobotPose[:2, 3])
+    
+    self.pAndC.actuation.spinCounterClockWise(spinCommand)
+    self.pAndC.actuation.goForward(forwardCommand)
+    self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+    return self
+  
+  def getTarget(self):
+    target = self.pAndC.latestRobotPose[:2, 3]
+    # target[1] = 0 # for spin test
+    target[1] = 10 * 0.0254 # for forward test
+    return target
+
 class LocalGoToMission(Mission):
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
@@ -179,7 +264,6 @@ class LocalGoToMission(Mission):
     # print("LocalGoToMission, newTarget:",newTarget, np.linalg.norm(newTarget))
     # print("LocalGoToMission, u_control:",u_control)
 
-    self.pAndC.actuation.reset()
     self.pAndC.actuation.goForward(u_control[0])
     self.pAndC.actuation.spinCounterClockWise(u_control[1])
     self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
@@ -214,7 +298,7 @@ class MoveArmUpMission(TimedMission):
       return self
     else:
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-      return ExploreForLocalizationMission(self.pAndC, timestamp)
+      return ExploreForLocalizationMission(self.pAndC, timestamp, GlobalGoToMission)
 
 class ExploreForLocalizationMission(Mission):
   """A mission to explore the map until the first
@@ -223,10 +307,11 @@ class ExploreForLocalizationMission(Mission):
 
   Just by turning right
   """
-  def __init__(self, pAndC, initTimestamp):
+  def __init__(self, pAndC, initTimestamp, nextMission):
     super().__init__(pAndC, initTimestamp)
     self.timestamp_rec = initTimestamp
     self.isSpinning = False
+    self.nextMission = nextMission
 
   def tick(self, timestamp):
     self.pAndC.actuation.reset()
@@ -253,7 +338,7 @@ class ExploreForLocalizationMission(Mission):
     else:
       # stop the motors
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-      return GlobalGoToMission(self.pAndC, timestamp)
+      return self.nextMission(self.pAndC, timestamp)
 
 class GlobalGoToMission(Mission):
   class FirstPhasePosition(Mission):
@@ -501,6 +586,7 @@ class PlanningAndControlNode(Node):
     self.latestSensorsTimestamp = None
     self.log = None
     self.isPerceptionReady = False
+    self.isMoving = None
 
   def perceptionReady_cb(self, timestamp, msg):
     self.isPerceptionReady = msg
@@ -524,6 +610,7 @@ class PlanningAndControlNode(Node):
     and is used as a tick function. The isMoving parameter
     might not be used
     """
+    self.isMoving = isMoving
     if self.actuation is None:
       from robot_interface_node import Actuation
       self.actuation = Actuation()
@@ -531,10 +618,9 @@ class PlanningAndControlNode(Node):
     
     # init mission to find an april tag
     if self.currentMission is None:
-      LocalGoToMission
       self.currentMission = ExploreForTennisBallsMission(self, timestamp)
       # self.currentMission = LocalGoToMission(self, timestamp)
-      # self.currentMission = ExploreForLocalizationMission(self, timestamp)
+      # self.currentMission = ExploreForLocalizationMission(self, timestamp, ControlDebugControlMission)
       # self.currentMission = MoveArmUpMission(self, timestamp)
     
     self.log(f"Current Mission: {type(self.currentMission).__name__}")
@@ -642,6 +728,7 @@ def test_planning_and_control_node():
     robot.update()
 
     sensorPublisherNode.publishSensorData(robot)
+
 
 
 if __name__ == "__main__":

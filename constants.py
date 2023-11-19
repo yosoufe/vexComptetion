@@ -277,8 +277,8 @@ class _CompetitionMapSouth:
 
     return transform
 
-Map = _CompetitionMapSouth
-# Map = _CompetitionMapNorth
+# Map = _CompetitionMapSouth
+Map = _CompetitionMapNorth
 # Map = _HomeMap
 
 def getGridMap():
