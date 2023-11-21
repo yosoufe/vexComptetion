@@ -41,7 +41,7 @@ class ATLocalizerNode(Node):
     
     tags = [tag for tag in tags if tag.decision_margin > 100 and
             tag.tag_id in Map.tag_ids
-            and abs(tag.pose_err) < 8e-6]
+            and abs(tag.pose_err) < 1e-6]
     if len(tags) == 0:
       return tags
     
@@ -68,6 +68,7 @@ class ATLocalizerNode(Node):
     landMarkToMap = Map.getLandmark(tag.tag_id)
     cameraToAt = np.linalg.inv(AtToCamera)
     robotInMap = landMarkToMap @ cameraToAt @ Config.robot2CamT()
+    # print("Y component:", robotInMap[1,3])
     self.atPosePub.publish(timestamp, robotInMap)
 
   def tagToT(self, tag):

@@ -9,7 +9,7 @@ import numpy as np
 
 # current Mission orders
 # ExploreForTennisBallsMission
-# LocalGoToMission
+# GoToTennisBallMission
 # CloseClawMission or ExploreForTennisBallsMission(if ball lost)
 # MoveArmUpMission
 # ExploreForLocalizationMission
@@ -39,6 +39,30 @@ class HomeConstants:
 Constants = CompetitionConstant
 # Constants = HomeConstants
 
+def stateToNumber(state):
+  if state.__class__.__name__ == "NoMission":
+    return 0
+  elif state.__class__.__name__ == "ExploreForTennisBallsMission":
+    return 1
+  elif state.__class__.__name__ == "GoToTennisBallMission":
+    return 2
+  elif state.__class__.__name__ == "CloseClawMission":
+    return 3
+  elif state.__class__.__name__ == "MoveArmUpMission":
+    return 4
+  elif state.__class__.__name__ == "ExploreForLocalizationMission":
+    return 5
+  elif state.__class__.__name__ == "FirstPhasePosition":
+    return 6
+  elif state.__class__.__name__ == "SecondPhaseRotation":
+    return 7
+  elif state.__class__.__name__ == "ThirdPhasePosition":
+    return 8
+  elif state.__class__.__name__ == "OpenClawMission":
+    return 9
+  elif state.__class__.__name__ == "MoveBackMission":
+    return 10
+
 
 class Mission(ABC):
   def __init__(self, pAndC, initTimestamp):
@@ -67,6 +91,7 @@ class NoMission(Mission):
     super().__init__(pAndC, initTimestamp)
 
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     return self
 
 class ExploreForTennisBallsMission(Mission):
@@ -75,6 +100,7 @@ class ExploreForTennisBallsMission(Mission):
     self.conditionMetCounter = 0
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
     self.pAndC.enablePerception()
     if not self.pAndC.isPerceptionReady:
@@ -90,7 +116,7 @@ class ExploreForTennisBallsMission(Mission):
         self.pAndC.motorCmdsPub.publish(
             timestamp, self.pAndC.actuation.generateMotorCmd())
         self.conditionMetCounter = self.conditionMetCounter + 1
-        return LocalGoToMission(self.pAndC, timestamp)
+        return GoToTennisBallMission(self.pAndC, timestamp)
       
       else:
         self.conditionMetCounter += 1
@@ -147,25 +173,28 @@ class LocalController:
       return self.pController.calculate(intermediateTargetLocal), intermediateTargetGlobal[:2]
 
 class NewController:
-  def __init__(self):
-    self.spinPD = PID(kp=50.0, ki=0.0001, kd=0., output_limit=[-50., 50.], withPlot = False) 
-    self.spinPID = PID(kp=60.0, ki=0.1, kd=100., output_limit=[-50., 50.], withPlot = False)
+  def __init__(self, title):
+    self.title = title
+    self.spinPD = PID(kp=30.0, ki=0.0001, kd=0., output_limit=[-50., 50.], plotName = f"{self.title} spinPD", input_factor_2Plot=57.2958) 
+    self.spinPID = PID(kp=30.0, ki=0.1, kd=300., output_limit=[-50., 50.], plotName = f"{self.title} spinPID", input_factor_2Plot=57.2958)
     # very good, too fast for current spin
-    # self.spinPD = PID(kp=60.0, ki=0.0001, kd=0., output_limit=[-50., 50.], withPlot = False) 
-    # self.spinPID = PID(kp=60.0, ki=0.3, kd=100., output_limit=[-50., 50.], withPlot = False) # very good, too fast
-    # self.spinPID = PID(kp=30.0, ki=1, kd=100., output_limit=[-50., 50.], withPlot = False) # very good
-    self.forwardPD = PID(kp=180.0, ki=0.1, kd=0., output_limit=[-80., 80.], withPlot = False)
-    self.forwardPID = PID(kp=180.0, ki=5, kd=150., output_limit=[-80., 80.], withPlot = False)
+    # self.spinPD = PID(kp=60.0, ki=0.0001, kd=0., output_limit=[-50., 50.], plotName = f"{self.title} spinPD", input_factor_2Plot=57.2958) 
+    # self.spinPID = PID(kp=60.0, ki=0.3, kd=100., output_limit=[-50., 50.], plotName = f"{self.title} spinPID", input_factor_2Plot=57.2958) # very good, too fast
+    # self.spinPID = PID(kp=30.0, ki=1, kd=100., output_limit=[-50., 50.], plotName = False) # very good
+    self.forwardPD = PID(kp=80.0, ki=0.05, kd=0., output_limit=[-80., 80.], plotName = f"{self.title} forwardPD", input_factor_2Plot=39.3701)
+    self.forwardPID = PID(kp=80.0, ki=3, kd=300., output_limit=[-80., 80.], plotName = f"{self.title} forwardPID", input_factor_2Plot=39.3701)
     self.lastLocalizationTime = 0
     self.lastCommands = None
 
   def calculate(self, currentPose, targetPosition2D, latestLocalizationTimestamp, isMoving):
     if latestLocalizationTimestamp != self.lastLocalizationTime or isMoving == False:
+      self.lastLocalizationTime = latestLocalizationTimestamp
       localTarget2D = self.targetInLocalFrame(currentPose, targetPosition2D)
       # Spin/Rotation PID
       headingError = self.calculateHeadingErrorAngleRad(localTarget2D)
+      # print(f"NewController: headingError: {np.rad2deg(headingError):0.4f} targetPosition2D", targetPosition2D)
       # if (abs(headingError) > np.deg2rad(3)):
-      headingErrorLimit = np.deg2rad(30)
+      headingErrorLimit = np.deg2rad(90)
       isHeadingClose = abs(headingError) < headingErrorLimit
       headingError = max(min(headingError, headingErrorLimit), -headingErrorLimit)
       if isHeadingClose:
@@ -179,7 +208,7 @@ class NewController:
       # spinCommand = 0
       # Forward PID
       forwardError = localTarget2D[0,0]
-      forwardErrorLimit = 0.3
+      forwardErrorLimit = 0.5
       isForwardClose = abs(forwardError) < forwardErrorLimit
       forwardError = max(min(forwardError, forwardErrorLimit), -forwardErrorLimit)
       if isForwardClose:
@@ -189,17 +218,18 @@ class NewController:
         forwardCommand = self.forwardPD.calculate(forwardError)
       # print(f"forwardError: {forwardError:0.4f} forwardCommand: {forwardCommand:0.4f}")
 
-      print(f"headingError: {headingError:0.4f} spinCommand: {spinCommand:0.4f} forwardError: {forwardError:0.4f} forwardCommand: {forwardCommand:0.4f}, isHeadingClose {isHeadingClose}, isForwardClose {isForwardClose}")
+      # print(f"headingError: {headingError:0.4f} spinCommand: {spinCommand:0.4f} forwardError: {forwardError:0.4f} forwardCommand: {forwardCommand:0.4f}, isHeadingClose {isHeadingClose}, isForwardClose {isForwardClose}")
 
       
       self.lastCommands = spinCommand, forwardCommand
     else:
+      # print("NewController, no new localization")
       spinCommand, forwardCommand = self.lastCommands
     
     
 
-    return 0.9*spinCommand, 0.6*forwardCommand # Fully charged
-    # return spinCommand, forwardCommand       # less battery
+    # return 0.9*spinCommand, 0.6*forwardCommand # Fully charged
+    return spinCommand, forwardCommand       # less battery
 
   def calculateHeadingErrorAngleRad(self, localTarget2D):
     return np.arctan2(localTarget2D[1],localTarget2D[0])[0]
@@ -212,10 +242,11 @@ class NewController:
 class ControlDebugControlMission(Mission):
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
-    self.controller = NewController()
+    self.controller = NewController("ControlDebugControlMission")
     self.target = None
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
     if self.target is None:
       # calculate target only once
@@ -237,12 +268,13 @@ class ControlDebugControlMission(Mission):
     target[1] = 10 * 0.0254 # for forward test
     return target
 
-class LocalGoToMission(Mission):
+class GoToTennisBallMission(Mission):
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
-    self.controller = NewController()
+    self.controller = NewController("GoToTennisBallMission")
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
 
     # The latest seen ball should be seen recently (not later than 2 seconds ago)
@@ -252,18 +284,22 @@ class LocalGoToMission(Mission):
 
     # set the target position
     localTarget = self.pAndC.latestBallPositionsInRobotFrame[:2, 0] # - Config.zero_offset
+    # self.pAndC.log(f"GoToTennisBallMission: localTarget: {localTarget}, distance: {np.linalg.norm(localTarget)}")
+
     
     # Mission Done if we reached the target position
-    if np.all(np.absolute(localTarget) < np.array([0.01, 0.03])):
-      self.pAndC.log(f"LocalGoToMission: Target reached! localTarget: {localTarget}, distance: {np.linalg.norm(localTarget)}")
+    if (np.all(np.absolute(localTarget) < np.array([0.02, 0.02])) or 
+        np.all(np.absolute(localTarget) < np.array([0.013, 0.04]))):
+      self.pAndC.log(f"GoToTennisBallMission: Target reached! localTarget: {localTarget}, distance: {np.linalg.norm(localTarget)}")
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       self.pAndC.disablePerception()
       return CloseClawMission(self.pAndC, timestamp)
+      # return self
 
     # run the controller
     spinCommand, forwardCommand = self.controller.calculate(
       np.identity(4), localTarget,
-      self.pAndC.latestRobotPoseTimestamp, self.pAndC.isMoving)
+      self.pAndC.latestBallPositionsTimestamp, self.pAndC.isMoving)
 
     self.pAndC.actuation.goForward(forwardCommand)
     self.pAndC.actuation.spinCounterClockWise(spinCommand)
@@ -276,8 +312,9 @@ class CloseClawMission(TimedMission):
     super().__init__(pAndC, initTimestamp)
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
-    if self.timedLoopContinue(timestamp, duration=1.5):
+    if self.timedLoopContinue(timestamp, duration=2):
       # close arm for 1 second
       self.pAndC.actuation.clawCommand(52)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
@@ -286,15 +323,15 @@ class CloseClawMission(TimedMission):
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return MoveBackMission(self.pAndC, timestamp, MoveArmUpMission)
 
-class MoveArmUpMission(TimedMission):
+class MoveArmUpMission(Mission):
   def __init__(self, pAndC, initTimestamp):
     super().__init__(pAndC, initTimestamp)
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
-    if self.timedLoopContinue(timestamp, duration=2.2):# battery full
-    # if self.timedLoopContinue(timestamp, duration=2.5):
-      # Move arm up for 1
+    armPosition = self.pAndC.sensors[0]
+    if armPosition < 3460:
       self.pAndC.actuation.armCommand(52)
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
       return self
@@ -316,6 +353,7 @@ class ExploreForLocalizationMission(Mission):
     self.nextMission = nextMission
 
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
     if self.pAndC.latestRobotPoseTimestamp is None or \
       timestamp - self.pAndC.latestAtPoseTimestamp > 1:
@@ -347,9 +385,10 @@ class GlobalGoToMission(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
       super().__init__(pAndC, initTimestamp)
       self.mainMission = mainMission
-      self.controller = NewController()
+      self.controller = NewController("GlobalGoToMission First")
     
     def tick(self, timestamp) -> Mission:
+      self.pAndC.statePlotter.plot(stateToNumber(self))
       self.pAndC.actuation.reset()
 
       # set the current robot pose and target position
@@ -371,7 +410,10 @@ class GlobalGoToMission(Mission):
       self.pAndC.globalTargetPub.publish(timestamp, targetPosition2D)
 
       print("FirstPhasePosition errorDis", np.linalg.norm(errorPosition2D), spinCommand, forwardCommand)
-      
+      # if (forwardCommand > 100):
+      #   self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+      #   print("FirstPhasePosition got stuck! abort! forwardCommand:", forwardCommand)
+      #   return None
 
       self.pAndC.actuation.goForward(forwardCommand)
       self.pAndC.actuation.spinCounterClockWise(spinCommand)
@@ -380,7 +422,7 @@ class GlobalGoToMission(Mission):
     
     def chooseTargetPositionPhase1(self):
       globalTargetPosition, targetOrientation = self.mainMission.chooseTargetPose()
-      alpha = 0.3 # should be larger than Config.DISTNACE_OFFSET_X
+      alpha = 0.5 # should be larger than Config.DISTNACE_OFFSET_X
       phase1TargetPosition = globalTargetPosition - alpha * targetOrientation[:, 0]
       return phase1TargetPosition
 
@@ -390,14 +432,16 @@ class GlobalGoToMission(Mission):
       self.mainMission = mainMission
       # same implementation as spinControllers in NewController
       # TODO avoid code copy
-      self.spinPD = PID(kp=60.0, ki=0.0001, kd=0., output_limit=[-50., 50.], withPlot = False) # very good
-      self.spinPID = PID(kp=60.0, ki=0.3, kd=100., output_limit=[-50., 50.], withPlot = False) # very good
+      self.spinPD = PID(kp=60.0, ki=0.0001, kd=0., output_limit=[-50., 50.], plotName = "SecondPhaseRotation spinPD", input_factor_2Plot=57.2958) # very good
+      self.spinPID = PID(kp=60.0, ki=0.3, kd=100., output_limit=[-50., 50.], plotName = "SecondPhaseRotation spinPID", input_factor_2Plot=57.2958) # very good
       self.lastLocalizationTime = 0
       self.lastCommands = None
     
     def tick(self, timestamp):
+      self.pAndC.statePlotter.plot(stateToNumber(self))
       self.pAndC.actuation.reset()
       if self.pAndC.latestRobotPoseTimestamp != self.lastLocalizationTime or self.pAndC.isMoving == False:
+        lastLocalizationTime = self.pAndC.latestRobotPoseTimestamp
         # calculate heading error
         robotPose = self.pAndC.latestRobotPose.copy()
         headingError = self.calculateHeadingErrorAngleRad(robotPose)
@@ -443,9 +487,10 @@ class GlobalGoToMission(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
       super().__init__(pAndC, initTimestamp)
       self.mainMission = mainMission
-      self.controller = NewController()
+      self.controller = NewController("ThirdPhasePosition")
     
     def tick(self, timestamp) -> Mission:
+      self.pAndC.statePlotter.plot(stateToNumber(self))
       self.pAndC.actuation.reset()
 
       # Choose the target and set current position
@@ -464,7 +509,6 @@ class GlobalGoToMission(Mission):
         self.pAndC.latestRobotPoseTimestamp, self.pAndC.isMoving)
       self.pAndC.globalTargetPub.publish(timestamp, targetPosition2D)
       # self.pAndC.log(f"GlobalGoToMission, ThirdPhasePosition: {np.linalg.norm(errorPosition2D)}, control: {(spinCommand, forwardCommand)}")
-      
 
       if (forwardCommand > 79):
         self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
@@ -483,6 +527,7 @@ class GlobalGoToMission(Mission):
     super().__init__(pAndC, initTimestamp)
     self.mission = None
     self.ATTagXPositions = np.zeros((6,), dtype=float)
+    self.globalTarget = None
     for idx in range(12,18):
       self.ATTagXPositions[idx-12] = Map.getLandmark(idx)[0,3]
 
@@ -506,6 +551,8 @@ class GlobalGoToMission(Mission):
       return self
   
   def chooseTargetPose(self):
+    if self.globalTarget is not None:
+      return self.globalTarget
     # targetPosition = np.array([0.15, -1.25], dtype=float)
     # # targetXaxis = np.array([0, -1], dtype=float)
     # targetPosition = np.array([1, 1], dtype=float)
@@ -514,13 +561,13 @@ class GlobalGoToMission(Mission):
     currentXPosition = self.pAndC.latestRobotPose.copy()[0, 3]
     # targetX = max(min(currentXPosition, Map.X_limits[1] - 0.3), Map.X_limits[0]+ 0.3)
     if Map.SIDE == "SOUTH":
-      shifted = self.ATTagXPositions[:5] + 3 * 0.0254
+      shifted = self.ATTagXPositions[1:5] + 3 * 0.0254
       minIdx = np.argmin(np.absolute(shifted - currentXPosition))
       targetX = shifted[minIdx]
       targetPosition = np.array([targetX, 3 * 0.0254], dtype=float)
       targetXaxis = np.array([0, 1], dtype=float)
     elif Map.SIDE == "NORTH":
-      shifted = self.ATTagXPositions[1:] - 3 * 0.0254
+      shifted = self.ATTagXPositions[1:5] - 3 * 0.0254
       minIdx = np.argmin(np.absolute(shifted - currentXPosition))
       targetX = shifted[minIdx]
       targetPosition = np.array([targetX, -3 * 0.0254], dtype=float)
@@ -531,7 +578,25 @@ class GlobalGoToMission(Mission):
     targetRotation = np.zeros((2,2), dtype=float)
     targetRotation[:, 0] = targetXaxis
     targetRotation[:, 1] = targetYaxis
-    return targetPosition, targetRotation
+    self.globalTarget = targetPosition, targetRotation
+    return self.globalTarget
+  
+  # def chooseTargetPose(self):
+  #   currentXPosition = self.pAndC.latestRobotPose.copy()[0, 3]
+  #   targetX = max(min(currentXPosition, Map.X_limits[1] - 0.3), Map.X_limits[0]+ 0.3)
+  #   if Map.SIDE == "SOUTH":
+  #     targetPosition = np.array([targetX, 3 * 0.0254], dtype=float)
+  #     targetXaxis = np.array([0, 1], dtype=float)
+  #   elif Map.SIDE == "NORTH":
+  #     targetPosition = np.array([targetX, -3 * 0.0254], dtype=float)
+  #     targetXaxis = np.array([0, -1], dtype=float)
+    
+  #   targetXaxis = targetXaxis / np.linalg.norm(targetXaxis)
+  #   targetYaxis = np.array([-targetXaxis[1], targetXaxis[0]],dtype=float)
+  #   targetRotation = np.zeros((2,2), dtype=float)
+  #   targetRotation[:, 0] = targetXaxis
+  #   targetRotation[:, 1] = targetYaxis
+  #   return  targetPosition, targetRotation
   
   def AmIAlreadyOnOtherSide(self):
     robotPosition2d = self.pAndC.latestRobotPose[:2,3]
@@ -546,6 +611,7 @@ class OpenClawMission(TimedMission):
     super().__init__(pAndC, initTimestamp)
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
     if self.timedLoopContinue(timestamp, duration=1):
       # open arm for 1 second
@@ -562,8 +628,9 @@ class MoveBackMission(TimedMission):
     self.nextSuccessMission = nextSuccessMission
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
-    if self.timedLoopContinue(timestamp, duration=0.5):
+    if self.timedLoopContinue(timestamp, duration=1.5):
       # go backward for 1 sec
       self.pAndC.actuation.goForward(-30) # it was 80 which was fast
       self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
@@ -577,6 +644,7 @@ class MoveArmDownMission(TimedMission):
     super().__init__(pAndC, initTimestamp)
   
   def tick(self, timestamp):
+    self.pAndC.statePlotter.plot(stateToNumber(self))
     self.pAndC.actuation.reset()
     if self.timedLoopContinue(timestamp, duration=1.5):
       # Move arm down for 1
@@ -613,6 +681,10 @@ class PlanningAndControlNode(Node):
     self.log = None
     self.isPerceptionReady = False
     self.isMoving = None
+    self.statePlotter = PlotterForControl(
+        title="State",
+        legend=["State"],
+        NoLimit=True)
 
   def perceptionReady_cb(self, timestamp, msg):
     self.isPerceptionReady = msg
@@ -645,7 +717,7 @@ class PlanningAndControlNode(Node):
     # init mission to find an april tag
     if self.currentMission is None:
       self.currentMission = ExploreForTennisBallsMission(self, timestamp)
-      # self.currentMission = LocalGoToMission(self, timestamp)
+      # self.currentMission = GoToTennisBallMission(self, timestamp)
       # self.currentMission = ExploreForLocalizationMission(self, timestamp, ControlDebugControlMission)
       # self.currentMission = MoveArmUpMission(self, timestamp)
     
@@ -752,7 +824,6 @@ def test_planning_and_control_node():
 
   while True:
     robot.update()
-
     sensorPublisherNode.publishSensorData(robot)
 
 

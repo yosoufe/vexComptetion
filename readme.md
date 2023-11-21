@@ -2,9 +2,9 @@
 ip at home "192.168.68.68"
 
 # TODO
-- fix The AmIAlready on the otherside for noisy localization
-- Don't grab balls on the other side
-- start exploration after perception is loaded.
+- More Powerfull TennisBall Exploration
+- Forward PID relies too much on Integral part. We need slightly more proportional part
+- What if we get stock?
 
 # checklist:
 - check if the arm goes high enough and not more than enough
@@ -72,6 +72,15 @@ sudo nmcli d connect wlan0 # search for new wifi
 sudo nmtui
 ```
 
+### wifi powermode
+
+https://github.com/robwaat/Tutorial/blob/master/Jetson%20Disable%20Wifi%20Power%20Management.md
+
+```
+sudo iw dev wlan0 set power_save on
+sudo iw dev wlan0 set power_save off
+
+```
 
 # April Tags
 

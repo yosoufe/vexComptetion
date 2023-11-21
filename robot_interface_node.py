@@ -103,14 +103,18 @@ class SensorReaderLoggerNode(Node):
     super().__init__("SensorReaderLoggerNode")
     self.rgbd_sub = self.create_subscriber(Topics.rgbd, self.rgbd_cb)
     self.isMoving_sub = self.create_subscriber(Topics.isMoving, self.isMoving_cb)
+    self.isMoving_sub = self.create_subscriber(Topics.sensors, self.sensors_cb)
   
   def rgbd_cb(self, timestamp, rgbd):
-    print("SensorReaderLoggerNode rgbd_cb:")
-    print(timestamp, rgbd)
+    # print("SensorReaderLoggerNode rgbd_cb:")
+    # print(timestamp, rgbd)
+    pass
 
   def isMoving_cb(self, timestamp, isMoving):
-    print("SensorReaderLoggerNode isMoving_cb:")
-    print(timestamp, isMoving)
+    print("SensorReaderLoggerNode isMoving_cb:", timestamp, isMoving)
+
+  def sensors_cb(self, timestamp, sensors):
+    print("sensors:", sensors)
 
 def test_sensor_reader_node():
   from middleware import start_subscribers

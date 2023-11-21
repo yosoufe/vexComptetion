@@ -1,12 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+GLOBAL_PLOT_ENABLE = False
+
 class PlotterForControl:
-  def __init__(self, title = None, legend = None):
+  def __init__(self, title = None, legend = None, NoLimit=False):
     self.fig = plt.figure(figsize=(8,6))
     self.ax = self.fig.add_subplot(1,1,1)
-    if title is not None:
-      self.fig.suptitle(title)
+    self.title = title
+    self.NoLimit = NoLimit
+    if title is None:
+      self.title = "UnknownTitle"
+    self.fig.suptitle(self.title)
     if legend is not None:
       self.legend = legend
     else:
@@ -17,7 +22,10 @@ class PlotterForControl:
   
   def plot(self, inp):
     if self.data is None:
-      self.data = np.zeros((1, inp.shape[0]))
+      if not isinstance(inp, np.ndarray):
+        self.data = np.zeros((1, 1))
+      else:
+        self.data = np.zeros((1, inp.shape[0]))
       self.data[0] = inp
     if self.legend is None:
       self.legend = [f"{idx}" for idx in range(inp.shape[0])]
@@ -28,23 +36,31 @@ class PlotterForControl:
     if self.data.shape[0] % 20 == 0:
       self.ax.clear()
       self.ax.plot(self.data)
-      self.data = self.data[-1000:]
+      if not self.NoLimit:
+        self.data = self.data[-1000:]
       self.ax.grid()
       self.ax.legend(self.legend)
       self.fig.canvas.draw()
       self.fig.canvas.flush_events()
+    
+    if self.data.shape[0] % 20 == 0:
+      self.fig.savefig(f"{self.title}.png")
 
 class PID:
-  def __init__(self, kp, ki, kd, output_limit = None, withPlot = False):
+  def __init__(self, kp, ki, kd, output_limit = None, plotName = None, input_factor_2Plot = 1.0):
     self.kp = kp
     self.ki = ki
     self.kd = kd
     self.output_limit = output_limit
     self.reset()
-    self.withPlot = withPlot
+    self.withPlot = False
+    self.input_factor_2Plot = input_factor_2Plot
+    if plotName is not None:
+      self.withPlot = True
+    self.withPlot = self.withPlot and GLOBAL_PLOT_ENABLE
     if self.withPlot:
       self.plotter = PlotterForControl(
-        title="pid",
+        title=plotName,
         legend=["input", "control", "P", "d", "I"])
 
   def reset(self):
@@ -76,7 +92,7 @@ class PID:
       else:
         d = d_term
       # toPlot = np.array([np.rad2deg(input).squeeze(),proposedOutput.squeeze(), p_term.squeeze(), d, i_term.squeeze()])
-      toPlot = np.array([39.3701*input.squeeze(),proposedOutput.squeeze(), p_term.squeeze(), d, i_term.squeeze()])
+      toPlot = np.array([self.input_factor_2Plot*input.squeeze(),proposedOutput.squeeze(), p_term.squeeze(), d, i_term.squeeze()])
       self.plotter.plot(toPlot)
       
     return proposedOutput.squeeze()
