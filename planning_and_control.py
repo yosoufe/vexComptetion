@@ -176,7 +176,7 @@ class NewController:
   def __init__(self, title):
     self.title = title
     self.spinPD = PID(kp=30.0, ki=0.0001, kd=0., output_limit=[-50., 50.], plotName = f"{self.title} spinPD", input_factor_2Plot=57.2958) 
-    self.spinPID = PID(kp=30.0, ki=0.1, kd=300., output_limit=[-50., 50.], plotName = f"{self.title} spinPID", input_factor_2Plot=57.2958)
+    self.spinPID = PID(kp=30.0, ki=1., kd=50., output_limit=[-50., 50.], plotName = f"{self.title} spinPID", input_factor_2Plot=57.2958)
     # very good, too fast for current spin
     # self.spinPD = PID(kp=60.0, ki=0.0001, kd=0., output_limit=[-50., 50.], plotName = f"{self.title} spinPD", input_factor_2Plot=57.2958) 
     # self.spinPID = PID(kp=60.0, ki=0.3, kd=100., output_limit=[-50., 50.], plotName = f"{self.title} spinPID", input_factor_2Plot=57.2958) # very good, too fast
@@ -449,7 +449,8 @@ class GlobalGoToMission(Mission):
         # Mission is done if heading error is less than 5 degrees
         if abs(headingError) < np.deg2rad(5):
           self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
-          return GlobalGoToMission.ThirdPhasePosition(self.pAndC, self.mainMission, timestamp)
+          # return GlobalGoToMission.ThirdPhasePosition(self.pAndC, self.mainMission, timestamp)
+          return GlobalGoToMission.ThirdPhaseGoForward(self.pAndC, self.mainMission, timestamp)
 
         headingErrorLimit = np.deg2rad(30)
         isHeadingClose = abs(headingError) < headingErrorLimit
@@ -482,6 +483,23 @@ class GlobalGoToMission(Mission):
     def chooseTargetHeadingVector(self):
       _, targetOrientation = self.mainMission.chooseTargetPose()
       return targetOrientation[:2, 0]
+    
+  class ThirdPhaseGoForward(TimedMission):
+    def __init__(self, pAndC, mainMission, initTimestamp):
+      super().__init__(pAndC, initTimestamp)
+      self.mainMission = mainMission
+    
+    def tick(self, timestamp):
+      self.pAndC.statePlotter.plot(stateToNumber(self))
+      self.pAndC.actuation.reset()
+      if self.timedLoopContinue(timestamp, duration=4):
+        # go backward for 1 sec
+        self.pAndC.actuation.goForward(40)
+        self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+        return self
+      else:
+        self.pAndC.motorCmdsPub.publish(timestamp, self.pAndC.actuation.generateMotorCmd())
+        return None
   
   class ThirdPhasePosition(Mission):
     def __init__(self, pAndC, mainMission, initTimestamp):
@@ -820,6 +838,8 @@ def test_planning_and_control_node():
   generateLocalizationNodes(withGraph = True)
   planningAndControlNode = PlanningAndControlNode()
   start_subscribers()
+
+  input("Press Enter to continue...")
   
 
   while True:

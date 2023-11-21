@@ -159,7 +159,9 @@ class PerceptionNode(Node):
       positions[:3, :] = tennisBalls
       positionsInRobotFrame = Config.cam2RobotT() @ positions
       NotOnWallBalls = positionsInRobotFrame[2,:] < 0.3
-      positionsInRobotFrame = np.sort(positionsInRobotFrame[:,NotOnWallBalls].copy(), axis = 1)
+      # positionsInRobotFrame = np.sort(positionsInRobotFrame[:,NotOnWallBalls].copy(), axis = 1)
+      distances = np.linalg.norm(positionsInRobotFrame[:,NotOnWallBalls], axis=0)
+      positionsInRobotFrame = positionsInRobotFrame[:,np.argsort(distances)]
       if positionsInRobotFrame.size > 0:
         self.ballPositionPublisher.publish(timestamp, positionsInRobotFrame)
     

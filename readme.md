@@ -2,9 +2,10 @@
 ip at home "192.168.68.68"
 
 # TODO
-- More Powerfull TennisBall Exploration
-- Forward PID relies too much on Integral part. We need slightly more proportional part
-- What if we get stock?
+- Somehow deted the tennis ball is grabbed
+- Fine tune the PIDs
+- Make sure data is being transferred at constant rate.
+- Detect we are stuck
 
 # checklist:
 - check if the arm goes high enough and not more than enough

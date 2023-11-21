@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-GLOBAL_PLOT_ENABLE = False
+GLOBAL_PLOT_ENABLE = True
 
 class PlotterForControl:
   def __init__(self, title = None, legend = None, NoLimit=False):
