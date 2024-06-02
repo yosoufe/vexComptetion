@@ -2,6 +2,30 @@ from middleware import Node
 from constants import Topics
 import keyboard
 import numpy as np
+import pygame
+
+# Initialize the joystick module
+pygame.joystick.init()
+
+if pygame.joystick.get_count() == 0:
+    print("No joysticks connected.")
+    pygame.quit()
+else:
+    # Initialize the first joystick
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+    print(f"Joystick initialized: {joystick.get_name()}")
+
+def translate(value, leftMin, leftMax, rightMin, rightMax):
+    # Figure out how 'wide' each range is
+    leftSpan = leftMax - leftMin
+    rightSpan = rightMax - rightMin
+
+    # Convert the left range into a 0-1 range (float)
+    valueScaled = float(value - leftMin) / float(leftSpan)
+
+    # Convert the 0-1 range into a value in the right range.
+    return rightMin + (valueScaled * rightSpan)
 
 class Actuation:
   RIGHT_MOTOR_INDEX = 0
@@ -68,11 +92,37 @@ class ManualControlNode(Node):
     self.commandPublisher = self.create_publisher(Topics.motorCommands)
     self.actuation = Actuation()
 
+  # def publishMotorCommands(self, timestamp):
+  #   self.actuation.reset()
+  #   self.actuation.goForward((keyboard.is_pressed("w") - keyboard.is_pressed("s"))* 60)
+  #   self.actuation.spinCounterClockWise((keyboard.is_pressed("a") - keyboard.is_pressed("d"))*55)
+  #   arm = keyboard.is_pressed("r") - keyboard.is_pressed("f")
+  #   if arm == 0:
+  #     self.actuation.armCommand(10)
+  #   elif arm == 1:
+  #     self.actuation.armCommand(42)
+  #   else:
+  #     self.actuation.armCommand(-42)
+
+  #   self.actuation.clawCommand((keyboard.is_pressed("q") - keyboard.is_pressed("e"))*42)
+  #   self.commandPublisher.publish(timestamp, self.actuation.generateMotorCmd())
+
   def publishMotorCommands(self, timestamp):
     self.actuation.reset()
-    self.actuation.goForward((keyboard.is_pressed("w") - keyboard.is_pressed("s"))* 60)
-    self.actuation.spinCounterClockWise((keyboard.is_pressed("a") - keyboard.is_pressed("d"))*55)
-    arm = keyboard.is_pressed("r") - keyboard.is_pressed("f")
+    pygame.event.pump()
+    # Read axis values
+    forward = joystick.get_axis(1)
+    forward = translate(forward, -1.0, 1.0, -128, 128)
+    spinCCW = -joystick.get_axis(2)
+    spinCCW = translate(spinCCW, -1.0, 1.0, -128, 128)
+    # print(f"Axis Motion 2 - X: {x_axis_2}, Y: {y_axis_2}")
+
+    # Read button states
+    button_states = [joystick.get_button(i) for i in range(joystick.get_numbuttons())]
+    print(f"Buttons {button_states}")
+    self.actuation.goForward(-forward)
+    self.actuation.spinCounterClockWise(spinCCW)
+    arm = joystick.get_button(3) - joystick.get_button(0)
     if arm == 0:
       self.actuation.armCommand(10)
     elif arm == 1:
@@ -80,7 +130,7 @@ class ManualControlNode(Node):
     else:
       self.actuation.armCommand(-42)
 
-    self.actuation.clawCommand((keyboard.is_pressed("q") - keyboard.is_pressed("e"))*42)
+    self.actuation.clawCommand((joystick.get_button(4) - joystick.get_button(5) + joystick.get_button(2) - joystick.get_button(1))*42)
     self.commandPublisher.publish(timestamp, self.actuation.generateMotorCmd())
 
 class SensorPublisherNode(Node):

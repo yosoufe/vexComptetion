@@ -35,10 +35,28 @@ xhost + \
   --privileged \
   -v /dev/bus/usb/:/dev/bus/usb/ \
   -e DISPLAY \
+  -v /dev/input:/dev/input \
   vexcompetition \
   bash -c "cd `realpath .` && bash"
 ```
 
+# For Demo day
+
+1. Start the container
+2. Figure out the jetson ip and the service port and set it in `constant.py`.
+3. re-plug the camera
+3. `ssh user@<jetson ip>` and `sudo systemctl restart nvcortexnano.service`
+4. Test with manual control
+```bash
+# test_manual_control
+pytho robot_interface_node.py
+# or
+python practices/robot.py
+```
+5. For autonomous system we can run
+```bash
+python planning_and_control.py
+```
 
 # On Jetson
 ```
@@ -110,74 +128,14 @@ https://github.com/AprilRobotics/apriltag-imgs
 - Claw Motor: port 8
 - Arm Motor: port 9
 
-## Camera calibration 
-
-[[ 0.0387005  -0.99832564  0.0417403   0.        ]
- [-0.42239487 -0.05450909 -0.90101783  0.        ]
- [ 0.90558536  0.01723895 -0.43176918  0.        ]
- [ 0.          0.          0.          0.        ]]
-
-camera to robot transformation: 
- [[ 0.04183374 ,-0.40959374 , 0.91130835 ,-0.33556501]
- [-0.99828073 ,-0.05146286,  0.02269589,  0.10270806]
- [ 0.03691244 ,-0.90393521 ,-0.42607349 , 0.2442368 ]
- [ 0.          ,0.         , 0.         , 1.        ]]
-robot to camera transformation: 
- [[ 0.04183374 ,-0.99828073 , 0.03691244  ,0.1076191 ]
- [-0.40959374, -0.05146286, -0.90393521 , 0.08528469]
- [ 0.91130835 , 0.02269589 ,-0.42607349  ,0.40161486]
- [ 0.         , 0.         , 0.          ,1.        ]]
+## Camera calibration
 
 
-3rd try
+### Versions
 
-camera to robot transformation: 
- [[ 0.04892364 -0.41772631  0.90725477 -0.32358759]
- [-0.99831263 -0.0435315   0.03379077  0.09919108]
- [ 0.02448331 -0.89973047 -0.43575871  0.24580773]
- [ 0.          0.          0.          1.        ]]
-robot to camera transformation: 
- [[ 0.04892364 -0.99831263  0.02448331  0.10879795]
- [-0.41772631 -0.0435315  -0.89973047  0.08688687]
- [ 0.90725477  0.03379077 -0.43575871  0.39080503]
- [ 0.          0.          0.          1.        ]]
+/vexbot/CortexNanoBridge:
+0c97988b1f8e4ddbcf1f2c356a694dc102c7a4ef
 
+e3ed77a93e11b9d8ce0bf646e9b41bfa9ca264c9
 
-array([[ 0.0695368 ,  0.99752359,  0.01055085],
-       [-0.46330579,  0.02292656,  0.88590187],
-       [ 0.88346612, -0.06649105,  0.46375269]])
-array([[107.75917427],
-       [101.96002389],
-       [450.90017004]])
-
-
-
-## Jupyter notebook
-
-```bash
-jupyter notebook --allow-root --no-browser
-```
-
-
-
-latest error:
-
-```
-Current Mission: GlobalGoToMission.ThirdPhasePosition
-Process Process-6:
-Traceback (most recent call last):
-  File "/opt/conda/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
-    self.run()
-  File "/opt/conda/lib/python3.10/multiprocessing/process.py", line 108, in run
-    self._target(*self._args, **self._kwargs)
-  File "/home/yousofe/vex/vexComptetion/middleware.py", line 102, in _subscription_run
-    subscriber.callback(timestamp, msg)
-  File "/home/yousofe/vex/vexComptetion/planning_and_control.py", line 502, in tick
-    nextMission = self.currentMission.tick(timestamp)
-  File "/home/yousofe/vex/vexComptetion/planning_and_control.py", line 373, in tick
-    self.mission = self.mission.tick(timestamp)
-  File "/home/yousofe/vex/vexComptetion/planning_and_control.py", line 348, in tick
-    u_control, newTarget = self.controller.calculate(robotPose, targetPosition2D)
-TypeError: LocalController.calculate() missing 1 required positional argument: 'targetPosition2D'
-
-```
+400a358a3975230e827a3d14d03bbd82df81525f

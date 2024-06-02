@@ -5,8 +5,8 @@ import queue
 
 class _Broker:
   def __init__(self):
-    self.subscribers = {} # topic to [subscriber]
-    self.publishers = {} # topic to publisher since there is one publisher node for each topic
+    self.subscribers = {} # topic to List[subscriber]
+    self.publishers = {} # topic to publisher since there is only one publisher node for each topic
     self.matches = [] # list of (topic, publisher node, subscriber node)
     self.nodes_with_subscribers = []
 
@@ -24,13 +24,13 @@ class _Broker:
       self.publishers[subscriber.topic]._add_pub_queue(queue)
       self.matches.append((subscriber.topic, self.publishers[subscriber.topic]._node_name, subscriber.node._name))
       self.nodes_with_subscribers.append(subscriber.node)
-  
+
   def request_publisher(self, publisher):
     if publisher._topic in self.publishers:
       raise Exception("Multiple nodes cannot publish on a same topic")
     self.publishers[publisher._topic] = publisher
     self._match_publisher_to_subscribers(publisher)
-  
+
   def _match_publisher_to_subscribers(self, publisher):
     if publisher._topic in self.subscribers:
       for subscriber in self.subscribers[publisher._topic]:
@@ -64,7 +64,7 @@ class Node:
     self._name = name
     self._sub_queues = []
     self._topic2Subscription = {}
-    
+
     # just to keep the node alive without keeping
     # the instance in some main function.
     _GlobalObjs._nodes.append(self)
@@ -84,7 +84,7 @@ class Node:
 
   def _add_sub_queue(self, sub_queue):
     self._sub_queues.append(sub_queue)
-  
+
   def _subscription_run(self):
     tsts = [que._reader for que in self._sub_queues]
     mmmm = {que._reader: que for que in self._sub_queues}
@@ -93,14 +93,14 @@ class Node:
       # We need a workaround for windows
       conncections, _, _ = select.select(tsts, [], [])
       for connection in conncections:
-        queu = mmmm[connection] 
+        queu = mmmm[connection]
         item = queu.get()
         topic, timestamp, msg = copy.deepcopy(item)
         del item
         # topic, timestamp, msg = copy.deepcopy(queu.get())
         subscriber = self._topic2Subscription[topic]
         subscriber.callback(timestamp, msg)
-  
+
   def start(self):
     self._process = mp.Process(target=self._subscription_run)
     self._process.start()
@@ -158,36 +158,36 @@ def test1():
     def __init__(self):
       super().__init__("PublisherNode")
       self.publisher = self.create_publisher("test_topic")
-  
+
     def run(self):
       for idx in range(3):
         print(f"publishing {idx}")
         timestamp = idx
         self.publisher.publish(timestamp, f"publisher says {idx}", block=True)
-    
+
   class SubscriberNode(Node):
     def __init__(self):
       super().__init__("SubscriberNode")
       self.subscriber = self.create_subscriber("test_topic", self.callback)
       self.subscriber2 = self.create_subscriber("end_results", self.callback2)
-    
+
     def callback(self, timestamp, msg):
       print(f"from subscriber 1, msg: {msg}, {timestamp}")
 
     def callback2(self, timestamp, msg):
       print(f"from subscriber 1, end_results: {msg}, {timestamp}")
-  
+
   class SubscriberPublisherNode(Node):
     def __init__(self):
       super().__init__("SubscriberPublisherNode")
       self.subscriber = self.create_subscriber("test_topic", self.callback)
       self.publisher = self.create_publisher("end_results")
-    
+
     def callback(self, timestamp, msg):
       print(f"from SubscriberPublisherNode, msg: {msg}, {timestamp}")
       self.publisher.publish(timestamp, np.random.random((3,3)), block=True)
-    
-  
+
+
   publisherNode = PublisherNode()
   sub = SubscriberNode()
   subPub = SubscriberPublisherNode()
@@ -200,6 +200,6 @@ def test1():
   start_subscribers()
 
   publisherNode.run()
-  
+
 if __name__ == "__main__":
   test1()

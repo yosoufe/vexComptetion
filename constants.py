@@ -5,6 +5,7 @@ import numpy as np
 class Config:
   ip = "192.168.50.206" # in practice sessions
   # ip = "192.168.68.68"  # at home
+  port = 9999 # usually 9999
   fx = 460.92495728   # FOV(x) -> depth2xyz -> focal length (x)
   fy = 460.85058594   # FOV(y) -> depth2xyz -> focal length (y)
   cx = 315.10949707   # 640 (width) 320
@@ -43,7 +44,7 @@ class Config:
     if Config._robot2CamT is None:
       Config._robot2CamT = np.linalg.inv(Config.cam2RobotT())
     return Config._robot2CamT
-  
+
   DISTNACE_OFFSET_X = 0.15
   DISTNACE_OFFSET_Y = 0.0
 
@@ -53,7 +54,7 @@ class Config:
     r2toR[0, 3] = -Config.DISTNACE_OFFSET_X
     r2toR[1, 3] = -Config.DISTNACE_OFFSET_Y
     return r2toR
-  
+
   @staticmethod
   def RtoR2T():
     rtoR2 = np.eye(4,dtype= float)
@@ -72,9 +73,9 @@ class Config:
     from remote_interface_node import RemoteInterfaceNodeMultiProcessSafe, RemoteInterfaceNode
     import multiprocessing as mp
     if Config._robot is None:
-      queue = mp.Queue(maxsize=1)
-      Config._robot = RemoteInterfaceNodeMultiProcessSafe(queue, Config.ip, port=9999)
-      Config._robotNode = RemoteInterfaceNode(queue)
+      motorCmdQueue = mp.Queue(maxsize=1)
+      Config._robot = RemoteInterfaceNodeMultiProcessSafe(motorCmdQueue, Config.ip, port=Config.port)
+      Config._robotNode = RemoteInterfaceNode(motorCmdQueue)
     return Config._robot
 
 
@@ -106,6 +107,58 @@ class OldConfigs:
 
 
 # zero offset: target: [-0.08315515, 0.04375288]
+
+class _DemoMap:
+  tag_size = 3 * 0.0254  # m
+  # tag_size = 2.735 * 0.0254 # m
+  tag_ids = set(list(range(0, 8)))
+  # in _landmarks, positions are in inches
+  # they are converted to meters
+  # in the function below
+  HEADING_EAST_ROT  = np.array([[0,  0, -1],
+                                [1,  0,  0],
+                                [0, -1,  0]], dtype=float)
+  HEADING_SOUTH_ROT = np.array([[1,  0,  0],
+                                [0,  0,  1],
+                                [0, -1,  0]], dtype=float)
+  HEADING_WEST_ROT  = np.array([[0,  0,  1],
+                                [-1, 0,  0],
+                                [0, -1,  0]], dtype=float)
+  HEADING_NORTH_ROT = np.array([[-1, 0,  0],
+                                [0,  0, -1],
+                                [0, -1,  0]], dtype=float)
+  _landmarks = {
+      0: (np.array([-24, -12], dtype=float),HEADING_EAST_ROT),
+      1: (np.array([-24, -36], dtype=float),HEADING_EAST_ROT),
+
+      7: (np.array([-12, 0], dtype=float),HEADING_SOUTH_ROT),
+      6: (np.array([ 12, 0], dtype=float),HEADING_SOUTH_ROT),
+
+      5: (np.array([ 24, -12], dtype=float),HEADING_WEST_ROT),
+      4: (np.array([ 24, -36], dtype=float),HEADING_WEST_ROT),
+
+      2: (np.array([ -12, -48], dtype=float),HEADING_NORTH_ROT),
+      3: (np.array([  12, -48], dtype=float),HEADING_NORTH_ROT),
+  }
+
+  X_limits = np.array([-12 * 0.0254, 12 * 0.0254], dtype= float)
+  Y_limits = np.array([-48 * 0.0254,  0 * 0.0254], dtype= float)
+  GRID_MAP = None
+  GRID_SIZE_METERS = 0.025
+
+  @staticmethod
+  def getLandmark(id):
+    """ Transformation from  april tag frame to map frame
+    """
+    position, rotation = _DemoMap._landmarks[id]
+    transform = np.identity(4, dtype=float)
+    transform[:3,:3] = rotation
+    # convert position to meters
+    transform[:2,3] = position * 0.0254
+    # z component of the center
+    transform[2, 3] = 10 * 0.0254
+
+    return transform
 
 
 # MAP at Home
@@ -278,8 +331,9 @@ class _CompetitionMapSouth:
     return transform
 
 # Map = _CompetitionMapSouth
-Map = _CompetitionMapNorth
+# Map = _CompetitionMapNorth
 # Map = _HomeMap
+Map = _DemoMap
 
 def getGridMap():
   if Map.GRID_MAP is None:
@@ -300,7 +354,7 @@ class Topics:
   odom = "odom"                   # robot frame relative to previous robot frame
   fusedPose = "fusedPose"         # robot frame relative to map frame
   ballPositions = "ballPositions" # relative to robot frame
-  motorCommands = "motorCommands" # 
+  motorCommands = "motorCommands" #
   sensors = "sensors"             # sensors: Potentiometer and switches
   switchPerception = "switchPerception" # to enable or disable perception
 
