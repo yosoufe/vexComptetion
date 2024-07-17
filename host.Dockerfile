@@ -1,6 +1,6 @@
 FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
   && apt-get upgrade -y \
   && apt-get install -y \

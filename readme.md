@@ -154,3 +154,33 @@ bluetoothctl connect 00:04:4B:94:76:D3
 hcitool -i hci0 scan
 
 ```
+
+
+### Wifi access point
+```bash
+nmcli d wifi hotspot ifname wlo1 ssid robot_ap12 password robot1234
+nmcli dev wifi show-password
+
+nmcli con add type wifi ifname wlo1 con-name Hotspot autoconnect yes ssid robot_ap12
+nmcli con modify Hotspot 802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared
+nmcli con modify Hotspot wifi-sec.key-mgmt wpa-psk
+nmcli con modify Hotspot wifi-sec.psk "robot1234"
+nmcli con modify Hotspot ipv4.method manual ipv4.addresses 192.168.42.1/24
+nmcli con up Hotspot
+
+https://synaptica.info/en/2023/06/20/ubuntu-22-04-configure-access-point-by-shell-commands/
+https://askubuntu.com/questions/1421747/wifi-hotspot-from-ubuntu-22-04-not-visible-on-android-12-0
+
+nmcli con modify Hotspot 802-11-wireless-security.pmf disable
+
+# checking the ip address
+subnet="192.168.128"; for i in {1..255}; do (ping -c 1 -W 1 "$subnet.$i" &>/dev/null && echo "$subnet.$i is up") & done; wait
+subnet="192.168.55"; for i in {1..255}; do (ping -c 1 -W 1 "$subnet.$i" &>/dev/null && echo "$subnet.$i is up") & done; wait
+
+ssh user@192.168.128.66
+ssh user@192.168.55.1 # USB Connection
+
+```
+
+
+

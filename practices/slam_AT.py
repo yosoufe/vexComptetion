@@ -52,7 +52,7 @@ if __name__ == "__main__":
         print(tag.pose_R, tag.pose_t)
         # global_T = get_pose(tag.pose_R, tag.pose_t) # use your get_pose algorithm here!
         found_tag = True
-      
+
     if not found_tag and prev_rgbd_image is not None: # use RGBD odometry relative transform to estimate pose
       T = np.identity(4)
       ret, T, _ = open3d.pipelines.odometry.compute_rgbd_odometry(
