@@ -139,3 +139,18 @@ https://github.com/AprilRobotics/apriltag-imgs
 e3ed77a93e11b9d8ce0bf646e9b41bfa9ca264c9
 
 400a358a3975230e827a3d14d03bbd82df81525f
+
+
+## Bluetooth
+
+```bash
+sudo bluetoothctl
+scan on
+trust 00:04:4B:94:76:D3
+pair 00:04:4B:94:76:D3
+connect 00:04:4B:94:76:D3
+bluetoothctl connect 00:04:4B:94:76:D3
+
+hcitool -i hci0 scan
+
+```
